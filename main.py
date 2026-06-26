@@ -5,6 +5,10 @@ from urllib.parse import urljoin
 from dotenv import load_dotenv
 from playwright.sync_api import sync_playwright, TimeoutError
 
+from rich.console import Console
+from rich.panel import Panel
+from rich.status import Status
+
 # ...
 
 SESSION_FILE = "maktab_state.json"
@@ -36,12 +40,16 @@ LOAD_STATE = "domcontentloaded"
 # download_links.add(hq_url)
 download_links = []
 
+# ...
+
+console = Console()
+
 
 # ...
 
 def login_flow(page):
     """تمام مراحل ورود را با مودال انجام می‌دهد و state را ذخیره می‌کند"""
-    print("Starting login process...")
+    console.print("Starting login process...", style="bold blue")
 
     # رفتن به صفحه‌ی اصلی که دکمه‌ی "ورود | ثبت‌نام" را دارد
     page.goto(MAIN_URL)
@@ -52,7 +60,7 @@ def login_flow(page):
     # سلکتور: id="login"
     page.click("#login")
     # print("روی دکمهٔ «ورود | ثبت‌نام» کلیک شد.")
-    print('Clicked "Login / Register" button.')
+    console.print('Clicked "Login / Register" button.', style="cyan")
 
     #  منتظر نمایش فیلد نام کاربری در مودال
     page.wait_for_selector("#tessera", state="visible")
@@ -65,13 +73,13 @@ def login_flow(page):
             USERNAME,
             delay=100
             )
-    print("Username entered.")
+    console.print("Username entered.", style="cyan")
     time.sleep(2)
 
     #  کلیک روی دکمهٔ «تایید»
     #  HTML: data-tag="ga-email-phone-login"
     page.click('[data-tag="ga-email-phone-login"]')
-    print('Clicked "Confirm" button.')
+    console.print('Clicked "Confirm" button.', style="cyan")
 
     # یک مکث کوتاه برای شبیه‌سازی رفتار انسان
     # time.sleep(0.5)
@@ -90,12 +98,12 @@ def login_flow(page):
             PASSWORD,
             delay=100
             )
-    print("Password entered.")
+    console.print("Password entered.", style="cyan")
 
     #  کلیک روی دکمهٔ «ورود»
     #  HTML: data-tag="ga-password-submit"
     page.click('[data-tag="ga-password-submit"]')
-    print('Clicked "Login" button. Waiting for completion...')
+    console.print('Clicked "Login" button. Waiting for completion...', style="cyan")
 
     #  صبر میکنیم تا لاگین کامل شود (مودال بسته شود یا به داشبورد برود)
     #  یک راه: صبر میکنیم تا URL تغییر کند یا یک المنت خاص ظاهر شود
@@ -104,15 +112,15 @@ def login_flow(page):
         page.wait_for_url(PROFILE_URL, timeout=15000)
     except TimeoutError:
         # شاید ریدایرکت به صفحه‌ای دیگر باشد، مهم نیست
-        print("Timeout: Redirect to profile did not happen.")
+        console.print("Timeout: Redirect to profile did not happen.", style="yellow")
     except Exception as e:
-        print(f"Error: {e}")
+        console.print(f"Error: {e}", style="red")
     # except:
     #     pass  # Code Smell  # NOTE: ***
 
     #  ذخیره‌سازی سشن
     page.context.storage_state(path=SESSION_FILE)
-    print("✔ Login successful. Session saved.")
+    console.print("✔ Login successful. Session saved.", style="green")
 
 
 # ...
@@ -146,7 +154,7 @@ def get_next_lesson_url(page):
     # پیدا کردن لینک درس جاری (با کلاس color-violet)
     current_link = page.locator('a.desktop-unit-nav__unit:has(.color-violet)')
     if current_link.count() == 0:
-        print("❌ Could not locate the current lesson in the sidebar.")
+        console.print("❌ Could not locate the current lesson in the sidebar.", style="red")
         return None
 
     #  تلاش برای گرفتن sibling بعدی در همان فصل
@@ -204,9 +212,12 @@ def main():
             context = browser.new_context(storage_state=SESSION_FILE)
             page = context.new_page()
             if is_logged_in(page):
-                print("✅ Session is still valid. No need to log in again.")
+                console.print(
+                        "✅ Session is still valid. No need to log in again.",
+                        style="green"
+                        )
             else:
-                print("⚠️ Session expired. Logging in again...")
+                console.print("⚠️ Session expired. Logging in again...", style="yellow")
                 page.close()
                 context.close()
                 context = browser.new_context()
@@ -220,7 +231,7 @@ def main():
         # دریافت آدرس دوره از کاربر
         course_url = input("\nEnter course URL:\n").strip()
         if not course_url:
-            print("No course URL provided. Exiting.")
+            console.print("No course URL provided. Exiting.", style="red")
             browser.close()
             return
 
@@ -231,7 +242,7 @@ def main():
                 '#continueCourseNewVersion, button:has-text("ثبت نام"), button:has-text("ثبت‌نام")',
                 timeout=10000
                 )
-        print(f"Course page loaded: {course_url}")
+        console.print(f"Course page loaded: {course_url}", style="blue")
 
         # کلیک روی دکمهٔ مناسب
         try:
@@ -244,26 +255,35 @@ def main():
             first_lesson_btn = page.locator('#continueCourseNewVersion').first
             if first_lesson_btn.count() > 0:
                 first_lesson_btn.click()
-                print("✅ Navigated to the first lesson (via 'جلسه اول' button).")
+                console.print(
+                        "✅ Navigated to the first lesson (via 'جلسه اول' button).",
+                        style="green"
+                        )
             else:
                 # دکمهٔ «ثبت‌نام» را امتحان کن
                 register_btn = page.locator('button:has-text("ثبت نام"), button:has-text("ثبت‌نام")').first
+
                 if register_btn.count() > 0:
-                    register_btn.click()
-                    print("✅ Navigated to the first lesson (via 'ثبت‌نام' button).")
+                    with Status("Navigating to first lesson...", console=console):
+                        register_btn.click()
+                        page.wait_for_selector('div.desktop-unit-nav', timeout=10000)
+                    console.print("✅ Navigated to the first lesson (via 'ثبت‌نام' button).", style="green")
                 else:
-                    print("⚠️ Start button not found. Continuing anyway...")
+                    console.print("⚠️ Start button not found. Continuing anyway...", style="yellow")
 
             # بعد از کلیک، منتظر ظاهر شدن سایدبار (حداکثر ۱۰ ثانیه)
             page.wait_for_selector('div.desktop-unit-nav', timeout=10000)
-            print("✅ Sidebar loaded – ready to extract videos.")
+            console.print(
+                    "✅ Sidebar loaded – ready to extract videos.",
+                    style="green"
+                    )
         except Exception as e:
-            print(f"Failed to click start button: {e}")
+            console.print(f"Failed to click start button: {e}", style="red")
             browser.close()
             return
 
         # حالا که در اولین درس هستیم، پیمایش درس‌ها را شروع کن
-        print("\nStarting lesson traversal and video extraction...\n")
+        console.print("\nStarting lesson traversal and video extraction...\n", style="bold magenta")
 
         while True:
             # استخراج لینک ویدئوی کیفیت بالا (HQ)
@@ -273,15 +293,15 @@ def main():
             if video_urls:
                 hq_url = video_urls[0]  # معمولاً اولین source کیفیت HQ است
                 # print(f"🎬 HQ video: {hq_url}")
-                print(f"{hq_url}")
+                console.print(f"🎬 {hq_url}")
                 download_links.append(hq_url)
             else:
-                print("⚠️ This lesson does not contain a video.")
+                console.print("⚠️ This lesson does not contain a video.", style="yellow")
 
             # پیدا کردن لینک درس بعدی در sidebar
             next_path = get_next_lesson_url(page)
             if not next_path:
-                print("🏁 Reached the end of the course!")
+                console.print("🏁 Reached the end of the course!", style="bold green")
                 break
 
             # ساخت آدرس کامل
@@ -291,7 +311,7 @@ def main():
             else:
                 next_url = next_path
 
-            print(f"Next lesson: ➡️{next_url}")
+            console.print(f"➡️ Next lesson: {next_url}")
 
             page.goto(next_url)
             # page.wait_for_load_state(LOAD_STATE)
@@ -300,19 +320,22 @@ def main():
 
         # ...
 
-        print(" ------------------------------------- ")
-        print("Video Links:")
-        for link in download_links:
-            print(f"{link}")
-        with open('links.txt', 'w', encoding='utf-8') as f:
-            f.write('\n'.join(download_links))
-            # f.write(os.linesep.join(download_links))  #  ???
-            print(f"{len(download_links)} links saved to links.txt")
-        print(" ------------------------------------- ")
+        if download_links:
+            links_text = '\n'.join(download_links)
+            with open('links.txt', 'w', encoding='utf-8') as f:
+                f.write(links_text)
 
-        # ...
+            panel = Panel(
+                    links_text,
+                    title=f"[bold green]{len(download_links)} Video Links[/bold green]",
+                    border_style="blue",
+                    padding=(1, 2)
+                    )
+            console.print(panel)
+            console.print(f"📄 {len(download_links)} links saved to [bold]links.txt[/bold]", style="green")
+        else:
+            console.print("No video links were extracted.", style="yellow")
 
-        # پایان
         input("\n\nDone. Press Enter to exit...")
         browser.close()
 

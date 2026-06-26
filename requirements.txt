@@ -1,6 +1,10 @@
 dotenv==0.9.9
 greenlet==3.5.3
+markdown-it-py==4.2.0
+mdurl==0.1.2
 playwright==1.60.0
 pyee==13.0.1
+Pygments==2.20.0
 python-dotenv==1.2.2
+rich==15.0.0
 typing_extensions==4.15.0

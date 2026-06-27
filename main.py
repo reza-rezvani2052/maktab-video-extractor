@@ -46,7 +46,8 @@ def login_flow(page):
     console.print("Starting login process...", style="bold blue")
 
     # رفتن به صفحه‌ی اصلی که دکمه‌ی "ورود | ثبت‌نام" را دارد
-    page.goto(MAIN_URL)
+    # page.goto(MAIN_URL)
+    page.goto(MAIN_URL, wait_until="domcontentloaded")
 
     # page.wait_for_load_state("networkidle") #  این روش یک خط ذر میون کار میکنه
     page.wait_for_load_state(LOAD_STATE)
@@ -295,7 +296,8 @@ def main():
 
         # تلاش برای بارگذاری صفحهٔ دوره
         try:
-            page.goto(course_url)
+            # page.goto(course_url)
+            page.goto(course_url, wait_until="domcontentloaded")
         except Exception as e:
             console.print(
                     f"Failed to load URL: {e}\n"
@@ -382,9 +384,11 @@ def main():
             # console.print(f"➡️ Next lesson: {next_url}")  # TODO: ???
             vprint(f"➡️ Next lesson: {next_url}")
 
-            page.goto(next_url)
+            # page.goto(next_url)
+            page.goto(next_url, wait_until="domcontentloaded")
             # page.wait_for_load_state(LOAD_STATE)
             page.wait_for_selector('div.desktop-unit-nav', timeout=10000)
+
             time.sleep(0.3)
 
         # ...

@@ -1,5 +1,6 @@
 import os
 import time
+import argparse
 from urllib.parse import urljoin
 
 from dotenv import load_dotenv
@@ -28,17 +29,10 @@ if not USERNAME or not PASSWORD:
 MAIN_URL = "https://maktabkhooneh.org"
 PROFILE_URL = "https://maktabkhooneh.org/dashboard/courses/"
 
-# LOAD_STATE = "networkidle"   # NOTE: این روش یک خط در میون کار میکرد
+# LOAD_STATE = "networkidle"
 LOAD_STATE = "domcontentloaded"
 
-# ...
-
-# میتوان از ست به جای لیست برای جلوگیری از ذخیره شدن لینک های تکراری استفاده کرد
-# اما در ست نباید روی ترتیب عناصر حساب باز کرد و چون ترتیب دانلود لینک ها برای من
-# مهم است، نمیتوانم از ست استفاده کنم
-# download_links = set()
-# download_links.add(hq_url)
-download_links = []
+VERBOSE = False  # با دستورهای CLI تنظیم می‌شود
 
 # ...
 
@@ -53,14 +47,15 @@ def login_flow(page):
 
     # رفتن به صفحه‌ی اصلی که دکمه‌ی "ورود | ثبت‌نام" را دارد
     page.goto(MAIN_URL)
-    # page.wait_for_load_state("networkidle") # NOTE: این روش یک خط ذر میون کار میکنه
+
+    # page.wait_for_load_state("networkidle") #  این روش یک خط ذر میون کار میکنه
     page.wait_for_load_state(LOAD_STATE)
 
     # کلیک روی دکمه‌ی "ورود | ثبت‌نام"
     # سلکتور: id="login"
     page.click("#login")
     # print("روی دکمهٔ «ورود | ثبت‌نام» کلیک شد.")
-    console.print('Clicked "Login / Register" button.', style="cyan")
+    vprint('Clicked "Login / Register" button.', style="cyan")
 
     #  منتظر نمایش فیلد نام کاربری در مودال
     page.wait_for_selector("#tessera", state="visible")
@@ -73,13 +68,13 @@ def login_flow(page):
             USERNAME,
             delay=100
             )
-    console.print("Username entered.", style="cyan")
+    vprint("Username entered.", style="cyan")
     time.sleep(2)
 
     #  کلیک روی دکمهٔ «تایید»
     #  HTML: data-tag="ga-email-phone-login"
     page.click('[data-tag="ga-email-phone-login"]')
-    console.print('Clicked "Confirm" button.', style="cyan")
+    vprint('Clicked "Confirm" button.', style="cyan")
 
     # یک مکث کوتاه برای شبیه‌سازی رفتار انسان
     # time.sleep(0.5)
@@ -98,12 +93,12 @@ def login_flow(page):
             PASSWORD,
             delay=100
             )
-    console.print("Password entered.", style="cyan")
+    vprint("Password entered.", style="cyan")
 
     #  کلیک روی دکمهٔ «ورود»
     #  HTML: data-tag="ga-password-submit"
     page.click('[data-tag="ga-password-submit"]')
-    console.print('Clicked "Login" button. Waiting for completion...', style="cyan")
+    vprint('Clicked "Login" button. Waiting for completion...', style="cyan")
 
     #  صبر میکنیم تا لاگین کامل شود (مودال بسته شود یا به داشبورد برود)
     #  یک راه: صبر میکنیم تا URL تغییر کند یا یک المنت خاص ظاهر شود
@@ -129,6 +124,7 @@ def is_logged_in(page):
     """بررسی می‌کند که آیا با سشن قبلی هنوز لاگین هستیم."""
     page.goto(PROFILE_URL)
     page.wait_for_load_state(LOAD_STATE)
+
     # اگر در URL کلمه‌ی login وجود داشت، لاگین نیستیم
     # می‌توانیم به جای این کار، وجود یک عنصر خاص (مثلاً نام کاربری) را بررسی کنیم
     if "login" in page.url.lower():
@@ -201,11 +197,66 @@ def get_next_lesson_url(page):
 
 # ...
 
+def parse_args():
+    parser = argparse.ArgumentParser(
+            description="Extract HQ video links from Maktabkhooneh courses."
+            )
+    parser.add_argument(
+            "url",
+            nargs="?",
+            help="Course page URL (e.g., https://maktabkhooneh.org/course/...)",
+            )
+    parser.add_argument(
+            "--headless",
+            action="store_true",
+            help="Run browser in headless mode",
+            )
+    parser.add_argument(
+            "--output",
+            default="links.txt",
+            help="Output file path (default: links.txt)",
+            )
+    parser.add_argument(
+            "--verbose",
+            action="store_true",
+            help="Show detailed progress messages",
+            )
+    return parser.parse_args()
+
+
+# ...
+
+def vprint(*args, **kwargs):
+    if VERBOSE:
+        console.print(*args, **kwargs)
+
+
+# ...
+
 def main():
+    args = parse_args()
+
+    global VERBOSE
+    VERBOSE = args.verbose
+
+    # مقدار headless از CLI می‌آید
+    headless = args.headless
+
+    # ...
+
+    # میتوان از ست به جای لیست برای جلوگیری از ذخیره شدن لینک های تکراری استفاده کرد
+    # اما در ست نباید روی ترتیب عناصر حساب باز کرد و چون ترتیب دانلود لینک ها برای من
+    # مهم است، نمیتوانم از ست استفاده کنم
+    # download_links = set()
+    # download_links.add(hq_url)
+    download_links = []
+
+    # ...
+
     with sync_playwright() as p:
-        # NOTE: *
-        # اگر همه چیز تست شده، می‌توان headless=True کرد تا اجرا سریع‌تر و بی‌صدا شود
-        browser = p.chromium.launch(headless=False)
+        # اجرا با headless=True موجب اجرای سریع‌تر و بی‌صدا میشود
+        # و مرورگر به کاربر نشان داده نمیشود
+        browser = p.chromium.launch(headless=headless)  # default is False
 
         # مدیریت لاگین (با ذخیره و بازیابی سشن)
         if os.path.exists(SESSION_FILE):
@@ -228,21 +279,38 @@ def main():
             page = context.new_page()
             login_flow(page)
 
-        # دریافت آدرس دوره از کاربر
-        course_url = input("\nEnter course URL:\n").strip()
+        course_url = args.url
+        if not course_url:
+            # دریافت آدرس دوره از کاربر
+            course_url = input("\nEnter course URL:\n").strip()
         if not course_url:
             console.print("No course URL provided. Exiting.", style="red")
             browser.close()
             return
 
-        # رفتن به صفحهٔ دوره
-        page.goto(course_url)
+        # اگر URL با http شروع نمی‌شود، https:// را اضافه کن
+        if not course_url.startswith(('http://', 'https://')):
+            course_url = 'https://' + course_url
+            vprint(f"Added scheme -> {course_url}", style="cyan")
+
+        # تلاش برای بارگذاری صفحهٔ دوره
+        try:
+            page.goto(course_url)
+        except Exception as e:
+            console.print(
+                    f"Failed to load URL: {e}\n"
+                    "Please provide a valid full URL, e.g. https://maktabkhooneh.org/course/...",
+                    style="red"
+                    )
+            browser.close()
+            return
+
         # صبر می‌کنیم تا حداقل یکی از دو دکمهٔ «جلسه اول» یا «ثبت‌نام» ظاهر شود
         page.wait_for_selector(
                 '#continueCourseNewVersion, button:has-text("ثبت نام"), button:has-text("ثبت‌نام")',
                 timeout=10000
                 )
-        console.print(f"Course page loaded: {course_url}", style="blue")
+        vprint(f"Course page loaded: {course_url}", style="blue")
 
         # کلیک روی دکمهٔ مناسب
         try:
@@ -255,7 +323,7 @@ def main():
             first_lesson_btn = page.locator('#continueCourseNewVersion').first
             if first_lesson_btn.count() > 0:
                 first_lesson_btn.click()
-                console.print(
+                vprint(
                         "✅ Navigated to the first lesson (via 'جلسه اول' button).",
                         style="green"
                         )
@@ -267,13 +335,13 @@ def main():
                     with Status("Navigating to first lesson...", console=console):
                         register_btn.click()
                         page.wait_for_selector('div.desktop-unit-nav', timeout=10000)
-                    console.print("✅ Navigated to the first lesson (via 'ثبت‌نام' button).", style="green")
+                    vprint("✅ Navigated to the first lesson (via 'ثبت‌نام' button).", style="green")
                 else:
-                    console.print("⚠️ Start button not found. Continuing anyway...", style="yellow")
+                    vprint("⚠️ Start button not found. Continuing anyway...", style="yellow")
 
             # بعد از کلیک، منتظر ظاهر شدن سایدبار (حداکثر ۱۰ ثانیه)
             page.wait_for_selector('div.desktop-unit-nav', timeout=10000)
-            console.print(
+            vprint(
                     "✅ Sidebar loaded – ready to extract videos.",
                     style="green"
                     )
@@ -283,7 +351,7 @@ def main():
             return
 
         # حالا که در اولین درس هستیم، پیمایش درس‌ها را شروع کن
-        console.print("\nStarting lesson traversal and video extraction...\n", style="bold magenta")
+        vprint("\nStarting lesson traversal and video extraction...\n", style="bold magenta")
 
         while True:
             # استخراج لینک ویدئوی کیفیت بالا (HQ)
@@ -292,11 +360,11 @@ def main():
                     )
             if video_urls:
                 hq_url = video_urls[0]  # معمولاً اولین source کیفیت HQ است
-                # print(f"🎬 HQ video: {hq_url}")
                 console.print(f"🎬 {hq_url}")
+                # vprint(f"🎬 {hq_url}")  # NOTE: لینک ها خروجی اصلی هستند
                 download_links.append(hq_url)
             else:
-                console.print("⚠️ This lesson does not contain a video.", style="yellow")
+                vprint("⚠️ This lesson does not contain a video.", style="yellow")
 
             # پیدا کردن لینک درس بعدی در sidebar
             next_path = get_next_lesson_url(page)
@@ -307,11 +375,12 @@ def main():
             # ساخت آدرس کامل
             if next_path.startswith('/'):
                 # next_url = f"https://maktabkhooneh.org{next_path}"  # ok
-                next_url = urljoin(MAIN_URL, next_path)  # این روش حرفه‌ای‌تر و مطمئن‌تر است :
+                next_url = urljoin(MAIN_URL, next_path)  # این روش حرفه‌ای‌تر و مطمئن‌تر است
             else:
                 next_url = next_path
 
-            console.print(f"➡️ Next lesson: {next_url}")
+            # console.print(f"➡️ Next lesson: {next_url}")  # TODO: ???
+            vprint(f"➡️ Next lesson: {next_url}")
 
             page.goto(next_url)
             # page.wait_for_load_state(LOAD_STATE)
@@ -322,7 +391,7 @@ def main():
 
         if download_links:
             links_text = '\n'.join(download_links)
-            with open('links.txt', 'w', encoding='utf-8') as f:
+            with open(args.output, 'w', encoding='utf-8') as f:  # default = links.txt
                 f.write(links_text)
 
             panel = Panel(
@@ -332,7 +401,10 @@ def main():
                     padding=(1, 2)
                     )
             console.print(panel)
-            console.print(f"📄 {len(download_links)} links saved to [bold]links.txt[/bold]", style="green")
+            console.print(
+                    f"📄 {len(download_links)} links saved to [bold]{args.output}[/bold]",
+                    style="green"
+                    )
         else:
             console.print("No video links were extracted.", style="yellow")
 

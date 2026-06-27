@@ -1,3 +1,7 @@
+![Python](https://img.shields.io/badge/Python-3.11+-blue)
+![Playwright](https://img.shields.io/badge/Playwright-Latest-green)
+![Purpose](https://img.shields.io/badge/Purpose-Educational-orange)
+
 # Maktabkhooneh Video Link Extractor
 
 A Python script that automatically logs into **Maktabkhooneh**, opens a
@@ -18,8 +22,14 @@ and saves them to a text file.
 -   Traverses all chapters and lessons through the course sidebar
 -   Extracts direct HQ video URLs
 -   Preserves the original lesson order
--   Saves all links into `links.txt`
+-   Beautiful console output powered by **Rich** (colors, panels, and spinners)
+-   Headless mode for automation and servers
+-   Supports both **interactive** and **command-line** execution
+-   Graceful handling of URLs without `https://`
 -   Simulates human typing to reduce bot detection
+-   Customizable output file via the `--output` option
+-   Verbose mode for detailed execution logs
+
 
 ------------------------------------------------------------------------
 
@@ -54,7 +64,7 @@ playwright install chromium
 
 ## Configuration
 
-Create a `.env` file:
+Create a `.env` file in the project root:
 
 ``` env
 MAKTAB_USERNAME=your_email_or_phone
@@ -64,6 +74,8 @@ MAKTAB_PASSWORD=your_password
 ------------------------------------------------------------------------
 
 ## Usage
+
+### Interactive Mode
 
 ``` bash
 python main.py
@@ -77,7 +89,65 @@ The script will:
 2.  Open the first lesson
 3.  Traverse every lesson
 4.  Extract HQ video URLs
-5.  Save them into `links.txt`
+5.  Save them into the specified output file (default: links.txt)
+
+
+
+### Command-Line Mode
+
+You can also provide the course URL and options directly:
+
+``` bash
+python main.py [URL] [OPTIONS]
+```
+
+#### Arguments
+
+  -----------------------------------------------------------------------
+  Argument                       Description
+  ------------------------------ ----------------------------------------
+  `url`                          Course page URL (optional). If omitted,
+                                 you will be prompted to enter it
+                                 interactively.
+
+  -----------------------------------------------------------------------
+
+#### Options
+
+  -----------------------------------------------------------------------
+  Option                      Description
+  --------------------------- -------------------------------------------
+  `--headless`                Run the browser in headless mode (without
+                              opening a browser window).
+
+  `--output FILE`             Specify the output file path. Default:
+                              `links.txt`.
+
+  `--verbose`                 Display detailed progress messages,
+                              including login and navigation steps.
+  -----------------------------------------------------------------------
+
+### Examples
+
+``` bash
+# Interactive mode
+python main.py
+
+# Interactive mode with a custom output file
+python main.py --output videos.txt
+
+# Command-line mode
+python main.py "https://maktabkhooneh.org/course/..." --verbose
+
+# Headless mode
+python main.py "https://maktabkhooneh.org/course/..." --headless
+
+# URL without the https:// prefix
+python main.py "maktabkhooneh.org/course/..." --headless
+
+# Full example: custom output file and verbose mode
+python main.py "https://maktabkhooneh.org/course/..." --output course1.txt --verbose
+```
 
 ------------------------------------------------------------------------
 
@@ -86,9 +156,9 @@ The script will:
 ``` text
 .
 ├── main.py
-├── .env
 ├── requirements.txt
-└── README.md
+├── README.md
+└── storage_state.json
 ```
 
 ------------------------------------------------------------------------
@@ -97,10 +167,13 @@ The script will:
 
 -   Python
 -   Playwright
+-   Rich
 -   python-dotenv
 
 ------------------------------------------------------------------------
 
-## License
+## Disclaimer
 
-This project is intended for educational purposes only.
+This project is provided for educational purposes only.
+
+Users are responsible for complying with Maktabkhooneh's Terms of Service and applicable copyright laws.

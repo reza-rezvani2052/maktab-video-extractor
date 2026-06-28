@@ -125,6 +125,7 @@ python main.py [URL] [OPTIONS]
 
   `--verbose`                 Display detailed progress messages,
                               including login and navigation steps.
+
   -----------------------------------------------------------------------
 
 ### Examples

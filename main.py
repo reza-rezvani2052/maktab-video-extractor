@@ -1,4 +1,4 @@
-import os
+import os  # noqa: I001
 import time
 import argparse
 from urllib.parse import urljoin
@@ -140,60 +140,6 @@ def is_logged_in(page):
 
     return True
 
-
-# ...
-
-def get_next_lesson_url(page):
-    """
-    با توجه به sidebar جدید، لینک درس بعدی را پیدا می‌کند.
-    اگر به پایان دوره برسیم، None برمی‌گرداند.
-    """
-    # پیدا کردن لینک درس جاری (با aria-current یا کلاس فعال)
-    current_link = page.locator('a[aria-current="page"]')
-    if current_link.count() == 0:
-        console.print("❌ Could not locate the current lesson in the sidebar.", style="red")
-        return None
-
-    # درس جاری داخل یک <section data-v-9722e301=""> است
-    current_section = current_link.locator('xpath=ancestor::section[@data-v-9722e301]')
-    if current_section.count() > 0:
-        # درس بعدی در همان فصل (sibling section)
-        next_section = current_section.locator('xpath=following-sibling::section[@data-v-9722e301]').first
-        if next_section.count() > 0:
-            next_link = next_section.locator('a').first
-            if next_link.count() > 0:
-                return next_link.get_attribute('href')
-
-    # اگر در همان فصل درس بعدی نبود، به فصل بعدی برو
-    # رسیدن به container فصل (div[id^="course-chapter-"])
-    current_chapter = current_link.locator('xpath=ancestor::div[starts-with(@id, "course-chapter-")]')
-    if current_chapter.count() == 0:
-        return None
-
-    next_chapter = current_chapter.locator('xpath=following-sibling::div[starts-with(@id, "course-chapter-")]').first
-    if next_chapter.count() == 0:
-        return None  # فصل بعدی وجود ندارد -> پایان دوره
-
-    # باز کردن فصل در صورت بسته بودن
-    chapter_body = next_chapter.locator('div.overflow-y-auto')
-    if chapter_body.count() > 0:
-        style = chapter_body.get_attribute('style')
-        if style and 'display: none' in style:
-            # کلیک روی هدر فصل برای باز شدن
-            next_chapter.locator('div.cursor-pointer').first.click()
-            # کمی صبر برای باز شدن
-            try:
-                chapter_body.wait_for(state='visible', timeout=3000)
-            except:
-                pass
-
-    # اولین درس داخل فصل جدید
-    first_unit = chapter_body.locator('section a').first
-    if first_unit.count() > 0:
-        return first_unit.get_attribute('href')
-
-    return None
-
 # ...
 
 def parse_args():
@@ -222,15 +168,106 @@ def parse_args():
             )
     return parser.parse_args()
 
-
 # ...
 
 def vprint(*args, **kwargs):
     if VERBOSE:
         console.print(*args, **kwargs)
 
+# ...
+
+def wait_for_video(page, timeout=30000):
+    try:
+        page.wait_for_function(
+            """
+            () => {
+                const video = document.querySelector("video");
+
+                if (!video)
+                    return false;
+
+                return (
+                    video.src &&
+                    video.src.includes(".mp4")
+                ) ||
+                (
+                    video.currentSrc &&
+                    video.currentSrc.includes(".mp4")
+                );
+            }
+            """,
+            timeout=timeout
+        )
+
+        return True
+
+    except TimeoutError:
+        return False
+   
+# ...
+
+def extract_video_urls(page):
+
+    if not wait_for_video(page):
+        console.print("No video tag found yet.")
+        return []
+
+    urls = page.evaluate(
+        """
+        () => {
+
+            const result = [];
+
+            document.querySelectorAll("video").forEach(video => {
+
+                if(video.src)
+                    result.push(video.src);
+
+                if(video.currentSrc)
+                    result.push(video.currentSrc);
+
+
+                video.querySelectorAll("source").forEach(source => {
+
+                    if(source.src)
+                        result.push(source.src);
+
+                });
+
+            });
+
+
+            return [...new Set(result)]
+                .filter(
+                    x => x.includes(".mp4")
+                );
+        }
+        """
+    )
+
+    return urls
 
 # ...
+
+def get_all_lessons(page):
+    """
+    دریافت تمام لینک‌های درس‌ها از sidebar
+    """
+    lessons = page.locator("#unitChapter a")
+
+    urls = []
+
+    for i in range(lessons.count()):
+        href = lessons.nth(i).get_attribute("href")
+
+        if href and "/unit/" in href:
+            if href not in urls:
+                urls.append(href)
+
+    return urls
+
+# ...
+
 
 def main():
     args = parse_args()
@@ -240,9 +277,7 @@ def main():
 
     # مقدار headless از CLI می‌آید
     headless = args.headless
-
-    # ...
-
+    
     # میتوان از ست به جای لیست برای جلوگیری از ذخیره شدن لینک های تکراری استفاده کرد
     # اما در ست نباید روی ترتیب عناصر حساب باز کرد و چون ترتیب دانلود لینک ها برای من
     # مهم است، نمیتوانم از ست استفاده کنم
@@ -250,170 +285,259 @@ def main():
     # download_links.add(hq_url)
     download_links = []
 
-    # ...
+    context = None
+    browser = None
+
 
     with sync_playwright() as p:
-        # اجرا با headless=True موجب اجرای سریع‌تر و بی‌صدا میشود
-        # و مرورگر به کاربر نشان داده نمیشود
-        browser = p.chromium.launch(headless=headless)  # default is False
 
-        # مدیریت لاگین (با ذخیره و بازیابی سشن)
-        if os.path.exists(SESSION_FILE):
-            context = browser.new_context(storage_state=SESSION_FILE)
-            page = context.new_page()
-            if is_logged_in(page):
-                console.print(
-                        "✅ Session is still valid. No need to log in again.",
-                        style="green"
-                        )
-            else:
-                console.print("⚠️ Session expired. Logging in again...", style="yellow")
-                page.close()
-                context.close()
+        try:
+            # اجرا با headless=True موجب اجرای سریع‌تر و بی‌صدا میشود
+            # و مرورگر به کاربر نشان داده نمیشود
+            browser = p.chromium.launch(headless=headless)  # default is False
+
+
+            # =====================================
+            # Session / Login
+            # =====================================
+            # مدیریت لاگین (با ذخیره و بازیابی سشن)
+            if os.path.exists(SESSION_FILE):
+                console.print("Loading saved session...", style="cyan")
+
+                context = browser.new_context(storage_state=SESSION_FILE)
+                page = context.new_page()
+
+                if is_logged_in(page):
+                    console.print(
+                            "✅ Session is still valid. No need to log in again.",
+                            style="green"
+                            )
+                else:
+                    console.print("⚠️ Session expired. Logging in again...", style="yellow")
+                    # page.close()
+                    context.close()
+                    context = browser.new_context()
+                    page = context.new_page()
+                    login_flow(page)
+
+            else:               
                 context = browser.new_context()
                 page = context.new_page()
                 login_flow(page)
-        else:
-            context = browser.new_context()
-            page = context.new_page()
-            login_flow(page)
 
-        course_url = args.url
-        if not course_url:
-            # دریافت آدرس دوره از کاربر
-            course_url = input("\nEnter course URL:\n").strip()
-        if not course_url:
-            console.print("No course URL provided. Exiting.", style="red")
-            browser.close()
-            return
 
-        # اگر URL با http شروع نمی‌شود، https:// را اضافه کن
-        if not course_url.startswith(('http://', 'https://')):
-            course_url = 'https://' + course_url
-            vprint(f"Added scheme -> {course_url}", style="cyan")
 
-        # تلاش برای بارگذاری صفحهٔ دوره
-        try:
-            # page.goto(course_url)
-            page.goto(course_url, wait_until="domcontentloaded")
-        except Exception as e:
-            console.print(
-                    f"Failed to load URL: {e}\n"
-                    "Please provide a valid full URL, e.g. https://maktabkhooneh.org/course/...",
-                    style="red"
-                    )
-            browser.close()
-            return
+            # =====================================
+            # Course URL
+            # =====================================
 
-        # صبر می‌کنیم تا حداقل یکی از دو دکمهٔ «جلسه اول» یا «ثبت‌نام» ظاهر شود
-        page.wait_for_selector(
-                '#continueCourseNewVersion, button:has-text("ثبت نام"), button:has-text("ثبت‌نام")',
-                timeout=10000
-                )
-        vprint(f"Course page loaded: {course_url}", style="blue")
+            course_url = args.url
+            if not course_url:
+                # دریافت آدرس دوره از کاربر، اگر کاربر در حال تعاملی باشد
+                course_url = input("\nEnter course URL:\n").strip()
 
-        # کلیک روی دکمهٔ مناسب
-        try:
+            if not course_url:
+                console.print("No course URL provided. Exiting.", style="red")
+                # browser.close()  # TODO: ???
+                return
+
+
+            # اگر URL با http شروع نمی‌شود، https:// را اضافه کن
+            if not course_url.startswith(('http://', 'https://')):
+                course_url = 'https://' + course_url
+                vprint(f"Added scheme -> {course_url}", style="cyan")
+
+
+            console.print(f"Opening course:\n{course_url}", style="cyan")
+
+
+            # =====================================
+            # Open Course
+            # =====================================
+            # تلاش برای بارگذاری صفحهٔ دوره           
+            try:
+                page.goto(course_url, wait_until="domcontentloaded")
+            except Exception as e:
+                console.print(
+                        f"Failed to load URL: {e}\n"
+                        "Please provide a valid full URL, e.g. https://maktabkhooneh.org/course/...",
+                        style="red"
+                        )
+                browser.close()  # TODO: ???
+                return
+
+            # صبر می‌کنیم تا حداقل یکی از دو دکمهٔ «جلسه اول» یا «ثبت‌نام» ظاهر شود
+            page.wait_for_selector(
+                '#continueCourseNewVersion, '
+                'button:has-text("ثبت نام"), '
+                'button:has-text("ثبت‌نام")',
+                timeout=15000
+            )
+            # vprint(f"Course page loaded: {course_url}", style="blue")
+
+
+            # =====================================
+            # Enter first lesson
+            # =====================================
+
+            opened = False
+
             # اولویت با دکمهٔ «جلسه اول» (id مشخص) – .first برای جلوگیری از خطای strict mode
             """
             بعضی از صفحات مکتب‌خونه دو نسخه از دکمه‌ی «جلسه اول» دارند (یکی برای نمای دسکتاپ و یکی برای نمای موبایل)
             و هر دو دارای id="continueCourseNewVersion" هستند.
             با .first فقط اولین عنصر انتخاب می‌شود و خطا برطرف می‌گردد
             """
-            first_lesson_btn = page.locator('#continueCourseNewVersion').first
-            if first_lesson_btn.count() > 0:
-                first_lesson_btn.click()
-                vprint(
-                        "✅ Navigated to the first lesson (via 'جلسه اول' button).",
-                        style="green"
-                        )
+            first_btn = page.locator("#continueCourseNewVersion").first
+
+            if first_btn.count() > 0:
+                first_btn.click()
+                opened = True
+
+                vprint("Clicked first lesson button.", style="green")
+                #vprint(
+                #        "✅ Navigated to the first lesson (via 'جلسه اول' button).",
+                #        style="green"
+                #        )
+
             else:
                 # دکمهٔ «ثبت‌نام» را امتحان کن
-                register_btn = page.locator('button:has-text("ثبت نام"), button:has-text("ثبت‌نام")').first
+                register_btn = page.locator(
+                    'button:has-text("ثبت نام"), '
+                    'button:has-text("ثبت‌نام")'
+                ).first
 
                 if register_btn.count() > 0:
-                    with Status("Navigating to first lesson...", console=console):
-                        register_btn.click()
-                        page.wait_for_selector('#unitChapter', timeout=10000)
+                    # TODO: *** این را تست کنم
+                    # with Status("Navigating to first lesson...", console=console):
+                    register_btn.click()
+                    opened = True                                                
                     vprint("✅ Navigated to the first lesson (via 'ثبت‌نام' button).", style="green")
                 else:
                     vprint("⚠️ Start button not found. Continuing anyway...", style="yellow")
 
-            # بعد از کلیک، منتظر ظاهر شدن سایدبار (حداکثر ۱۰ ثانیه)
-            page.wait_for_selector('#unitChapter', timeout=10000)
-            vprint(
-                    "✅ Sidebar loaded – ready to extract videos.",
-                    style="green"
+
+            if not opened:
+                console.print(
+                    "Cannot find start lesson button.",
+                    style="red"
+                )
+
+                return
+
+
+            page.wait_for_selector(
+                "#unitChapter",
+                timeout=15000
+            )
+
+
+
+            # =====================================
+            # Get lessons
+            # =====================================
+
+            # دریافت همه درس‌ها از sidebar
+            lesson_paths = get_all_lessons(page)
+            console.print(f"Lessons found: {len(lesson_paths)}", style="green")
+
+
+            if not lesson_paths:
+                console.print("No lessons found.", style="yellow")
+                return
+
+
+
+            # =====================================
+            # Traverse lessons
+            # =====================================
+
+            for index, lesson_path in enumerate(lesson_paths):
+                lesson_url = urljoin(MAIN_URL, lesson_path)
+
+                console.print(f"\n[{index + 1}/{len(lesson_paths)}]",
+                    style="blue"
+                )
+                console.print(lesson_url)
+
+                # فقط از درس دوم به بعد navigate کن
+                if index > 0:
+                    page.goto(
+                        lesson_url,
+                        wait_until="domcontentloaded"
                     )
-        except Exception as e:
-            console.print(f"Failed to click start button: {e}", style="red")
-            browser.close()
-            return
 
-        # حالا که در اولین درس هستیم، پیمایش درس‌ها را شروع کن
-        vprint("\nStarting lesson traversal and video extraction...\n", style="bold magenta")
 
-        while True:
-            # استخراج لینک ویدئوی کیفیت بالا (HQ)
-            video_urls = page.eval_on_selector_all(
-                    'video#lecture-video source', 'els => els.map(el => el.src)'
+                try:
+                    page.wait_for_selector("#unitChapter", timeout=15000)
+
+                    # اجازه ساخت Player توسط Vue
+                    page.wait_for_timeout(3000)
+
+                    video_urls = extract_video_urls(page)
+
+                    if video_urls:
+                        hq_url = video_urls[0]
+
+                        if hq_url not in download_links:
+                            download_links.append(hq_url)
+
+                        console.print(f"🎬 {hq_url}", style="green")
+
+
+                    else:
+
+                        console.print(
+                            "⚠️ No video found",
+                            style="yellow"
+                        )
+
+
+
+                except Exception as e:
+
+                    console.print(
+                        f"Error in lesson {index + 1}: {e}",
+                        style="red"
                     )
-            if video_urls:
-                hq_url = video_urls[0]  # معمولاً اولین source کیفیت HQ است
-                console.print(f"🎬 {hq_url}")
-                # vprint(f"🎬 {hq_url}")  # NOTE: لینک ها خروجی اصلی هستند
-                download_links.append(hq_url)
-            else:
-                vprint("⚠️ This lesson does not contain a video.", style="yellow")
 
-            # پیدا کردن لینک درس بعدی در sidebar
-            next_path = get_next_lesson_url(page)
-            if not next_path:
-                console.print("🏁 Reached the end of the course!", style="bold green")
-                break
 
-            # ساخت آدرس کامل
-            if next_path.startswith('/'):
-                # next_url = f"https://maktabkhooneh.org{next_path}"  # ok
-                next_url = urljoin(MAIN_URL, next_path)  # این روش حرفه‌ای‌تر و مطمئن‌تر است
-            else:
-                next_url = next_path
 
-            # console.print(f"➡️ Next lesson: {next_url}")  # TODO: ???
-            vprint(f"➡️ Next lesson: {next_url}")
+            # =====================================
+            # Save links
+            # =====================================
 
-            # page.goto(next_url)
-            page.goto(next_url, wait_until="domcontentloaded")
-            # page.wait_for_load_state(LOAD_STATE)
-            page.wait_for_selector('#unitChapter', timeout=10000)
+            if download_links:
+                links_text = "\n".join(download_links)
 
-            time.sleep(0.3)
+                with open(args.output, "w", encoding="utf-8") as f:
+                    f.write(links_text)
 
-        # ...
-
-        if download_links:
-            links_text = '\n'.join(download_links)
-            with open(args.output, 'w', encoding='utf-8') as f:  # default = links.txt
-                f.write(links_text)
-
-            panel = Panel(
+                panel = Panel(
                     links_text,
-                    title=f"[bold green]{len(download_links)} Video Links[/bold green]",
-                    border_style="blue",
-                    padding=(1, 2)
-                    )
-            console.print(panel)
-            console.print(
-                    f"📄 {len(download_links)} links saved to [bold]{args.output}[/bold]",
+                    title=f"{len(download_links)} Video Links",
+                    border_style="blue"
+                )
+
+                console.print(panel)
+                console.print(
+                    f"📄 Saved to {args.output}",
                     style="green"
-                    )
-        else:
-            console.print("No video links were extracted.", style="yellow")
+                )
 
-        input("\n\nDone. Press Enter to exit...")
-        browser.close()
+            else:
+                console.print("No video links extracted.", style="yellow")
+
+            input("\nDone. Press Enter to exit...")
 
 
+        finally:
+            if context:
+                context.close()
+
+            if browser:
+                browser.close()
+                   
 # ...
 
 if __name__ == "__main__":

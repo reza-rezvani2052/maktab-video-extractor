@@ -27,7 +27,7 @@ if not USERNAME or not PASSWORD:
 # ...
 
 MAIN_URL = "https://maktabkhooneh.org"
-PROFILE_URL = "https://maktabkhooneh.org/dashboard/courses/"
+PROFILE_URL = "https://maktabkhooneh.org/business"  # بعد از لاگین، به این صفحه ریدایرکت می‌شویم و می‌توانیم بررسی کنیم که لاگین موفق بوده است یا خیر
 
 # LOAD_STATE = "networkidle"
 LOAD_STATE = "domcontentloaded"
@@ -145,56 +145,54 @@ def is_logged_in(page):
 
 def get_next_lesson_url(page):
     """
-    با توجه به sidebar صفحه درس فعلی، لینک درس بعدی را پیدا می‌کند.
-    اگر به پایان دوره برسیم None برمی‌گرداند.
+    با توجه به sidebar جدید، لینک درس بعدی را پیدا می‌کند.
+    اگر به پایان دوره برسیم، None برمی‌گرداند.
     """
-    # پیدا کردن لینک درس جاری (با کلاس color-violet)
-    current_link = page.locator('a.desktop-unit-nav__unit:has(.color-violet)')
+    # پیدا کردن لینک درس جاری (با aria-current یا کلاس فعال)
+    current_link = page.locator('a[aria-current="page"]')
     if current_link.count() == 0:
         console.print("❌ Could not locate the current lesson in the sidebar.", style="red")
         return None
 
-    #  تلاش برای گرفتن sibling بعدی در همان فصل
-    next_link = current_link.locator(
-            'xpath=following-sibling::a[contains(@class, "desktop-unit-nav__unit")]'
-            ).first
-    if next_link.count() > 0:
-        return next_link.get_attribute('href')
+    # درس جاری داخل یک <section data-v-9722e301=""> است
+    current_section = current_link.locator('xpath=ancestor::section[@data-v-9722e301]')
+    if current_section.count() > 0:
+        # درس بعدی در همان فصل (sibling section)
+        next_section = current_section.locator('xpath=following-sibling::section[@data-v-9722e301]').first
+        if next_section.count() > 0:
+            next_link = next_section.locator('a').first
+            if next_link.count() > 0:
+                return next_link.get_attribute('href')
 
-    #  به فصل بعدی برو
-    # از لینک فعلی برو به div.filler (والد مجموعهٔ درس‌های فصل)
-    current_chapter_body = current_link.locator(
-            'xpath=ancestor::div[contains(@class, "filler")]'
-            )
-    if current_chapter_body.count() == 0:
+    # اگر در همان فصل درس بعدی نبود، به فصل بعدی برو
+    # رسیدن به container فصل (div[id^="course-chapter-"])
+    current_chapter = current_link.locator('xpath=ancestor::div[starts-with(@id, "course-chapter-")]')
+    if current_chapter.count() == 0:
         return None
 
-    # فصل بعدی: sibling بعدی از نوع desktop-unit-nav__chapter
-    next_chapter_title = current_chapter_body.locator(
-            'xpath=following-sibling::div[contains(@class, "desktop-unit-nav__chapter")]'
-            ).first  # <--- همین جا .first اضافه شد
-
-    if next_chapter_title.count() == 0:
+    next_chapter = current_chapter.locator('xpath=following-sibling::div[starts-with(@id, "course-chapter-")]').first
+    if next_chapter.count() == 0:
         return None  # فصل بعدی وجود ندارد -> پایان دوره
 
-    # باز کردن فصل اگر بسته باشد
-    chapter_id = next_chapter_title.get_attribute('data-collapsible-id')
-    body = page.locator(f'div.js-collapsible__body[data-collapsible-id="{chapter_id}"]')
-    if body.count() > 0:
-        if 'js-collapsible__body--active' not in (body.get_attribute('class') or ''):
-            # کلیک روی عنوان فصل برای باز شدن
-            next_chapter_title.click()
-            # کمی صبر برای انیمیشن باز شدن
-            # time.sleep(0.5)
-            time.sleep(1)
+    # باز کردن فصل در صورت بسته بودن
+    chapter_body = next_chapter.locator('div.overflow-y-auto')
+    if chapter_body.count() > 0:
+        style = chapter_body.get_attribute('style')
+        if style and 'display: none' in style:
+            # کلیک روی هدر فصل برای باز شدن
+            next_chapter.locator('div.cursor-pointer').first.click()
+            # کمی صبر برای باز شدن
+            try:
+                chapter_body.wait_for(state='visible', timeout=3000)
+            except:
+                pass
 
-        # اولین درس داخل این فصل
-        first_unit = body.locator('a.desktop-unit-nav__unit').first
-        if first_unit.count() > 0:
-            return first_unit.get_attribute('href')
+    # اولین درس داخل فصل جدید
+    first_unit = chapter_body.locator('section a').first
+    if first_unit.count() > 0:
+        return first_unit.get_attribute('href')
 
     return None
-
 
 # ...
 
@@ -336,13 +334,13 @@ def main():
                 if register_btn.count() > 0:
                     with Status("Navigating to first lesson...", console=console):
                         register_btn.click()
-                        page.wait_for_selector('div.desktop-unit-nav', timeout=10000)
+                        page.wait_for_selector('#unitChapter', timeout=10000)
                     vprint("✅ Navigated to the first lesson (via 'ثبت‌نام' button).", style="green")
                 else:
                     vprint("⚠️ Start button not found. Continuing anyway...", style="yellow")
 
             # بعد از کلیک، منتظر ظاهر شدن سایدبار (حداکثر ۱۰ ثانیه)
-            page.wait_for_selector('div.desktop-unit-nav', timeout=10000)
+            page.wait_for_selector('#unitChapter', timeout=10000)
             vprint(
                     "✅ Sidebar loaded – ready to extract videos.",
                     style="green"
@@ -387,7 +385,7 @@ def main():
             # page.goto(next_url)
             page.goto(next_url, wait_until="domcontentloaded")
             # page.wait_for_load_state(LOAD_STATE)
-            page.wait_for_selector('div.desktop-unit-nav', timeout=10000)
+            page.wait_for_selector('#unitChapter', timeout=10000)
 
             time.sleep(0.3)
 

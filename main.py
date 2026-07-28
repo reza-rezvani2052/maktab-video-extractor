@@ -484,14 +484,12 @@ def main():
 
                         console.print(f"🎬 {hq_url}", style="green")
 
-
                     else:
 
                         console.print(
                             "⚠️ No video found",
                             style="yellow"
                         )
-
 
 
                 except Exception as e:
@@ -516,12 +514,14 @@ def main():
                 panel = Panel(
                     links_text,
                     title=f"{len(download_links)} Video Links",
+                    # subtitle=f"{len(download_links)} Video Links",                    
                     border_style="blue"
                 )
 
                 console.print(panel)
                 console.print(
-                    f"📄 Saved to {args.output}",
+                    # f"📄 Saved to {args.output}",
+                    f"✅ Successfully saved {len(download_links)} links to {args.output}",
                     style="green"
                 )
 

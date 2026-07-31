@@ -1,24 +1,25 @@
-import time
 from urllib.parse import urljoin
 from playwright.sync_api import TimeoutError
 from config import MAIN_URL, console
 
+
 def wait_for_video(page, timeout=30000):
     try:
         page.wait_for_function(
-            """
-            () => {
-                const video = document.querySelector("video");
-                if (!video) return false;
-                return (video.src && video.src.includes(".mp4")) ||
-                       (video.currentSrc && video.currentSrc.includes(".mp4"));
-            }
-            """,
-            timeout=timeout
-        )
+                """
+                () => {
+                    const video = document.querySelector("video");
+                    if (!video) return false;
+                    return (video.src && video.src.includes(".mp4")) ||
+                           (video.currentSrc && video.currentSrc.includes(".mp4"));
+                }
+                """,
+                timeout=timeout
+                )
         return True
     except TimeoutError:
         return False
+
 
 def extract_video_urls(page):
     if not wait_for_video(page):
@@ -26,21 +27,22 @@ def extract_video_urls(page):
         return []
 
     urls = page.evaluate(
-        """
-        () => {
-            const result = [];
-            document.querySelectorAll("video").forEach(video => {
-                if (video.src) result.push(video.src);
-                if (video.currentSrc) result.push(video.currentSrc);
-                video.querySelectorAll("source").forEach(source => {
-                    if (source.src) result.push(source.src);
+            """
+            () => {
+                const result = [];
+                document.querySelectorAll("video").forEach(video => {
+                    if (video.src) result.push(video.src);
+                    if (video.currentSrc) result.push(video.currentSrc);
+                    video.querySelectorAll("source").forEach(source => {
+                        if (source.src) result.push(source.src);
+                    });
                 });
-            });
-            return [...new Set(result)].filter(x => x.includes(".mp4"));
-        }
-        """
-    )
+                return [...new Set(result)].filter(x => x.includes(".mp4"));
+            }
+            """
+            )
     return urls
+
 
 def get_all_lessons(page):
     lessons = page.locator("#unitChapter a")
@@ -50,6 +52,7 @@ def get_all_lessons(page):
         if href and "/unit/" in href and href not in urls:
             urls.append(href)
     return urls
+
 
 def extract_new_theme(page, *, verbose=False):
     download_links = []

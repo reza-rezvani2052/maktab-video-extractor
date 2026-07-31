@@ -1,4 +1,3 @@
-
 # old theme style :
 # آدرس صفحه معرفی دوره آموزشی :
 # maktabkhooneh.org/course/آموزش-طراحی-سرویس-fastapi-mk10645/
@@ -28,6 +27,7 @@ from extractors.new_theme import extract_new_theme
 if not USERNAME or not PASSWORD:
     raise RuntimeError("MAKTAB_USERNAME or MAKTAB_PASSWORD not found in .env")
 
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Extract HQ video links from Maktabkhooneh courses.")
     parser.add_argument("url", nargs="?", help="Course page URL")
@@ -35,6 +35,7 @@ def parse_args():
     parser.add_argument("--output", default="links.txt", help="Output file path (default: links.txt)")
     parser.add_argument("--verbose", action="store_true", help="Show detailed progress messages")
     return parser.parse_args()
+
 
 def main():
     args = parse_args()
@@ -93,9 +94,9 @@ def main():
 
             # صبر برای دکمه شروع
             page.wait_for_selector(
-                '#continueCourseNewVersion, button:has-text("ثبت نام"), button:has-text("ثبت‌نام")',
-                timeout=15000
-            )
+                    '#continueCourseNewVersion, button:has-text("ثبت نام"), button:has-text("ثبت‌نام")',
+                    timeout=15000
+                    )
 
             # کلیک روی دکمه شروع
             opened = False
@@ -160,6 +161,6 @@ def main():
             if browser:
                 browser.close()
 
+
 if __name__ == "__main__":
     main()
-

@@ -1,6 +1,8 @@
 import time
+
 from playwright.sync_api import TimeoutError
 from config import MAIN_URL, PROFILE_URL, SESSION_FILE, LOAD_STATE, console, USERNAME, PASSWORD
+
 
 def login_flow(page):
     """ورود کامل با مودال و ذخیره‌سازی سشن"""
@@ -27,6 +29,7 @@ def login_flow(page):
         console.print(f"Error: {e}", style="red")
     page.context.storage_state(path=SESSION_FILE)
     console.print("✔ Login successful. Session saved.", style="green")
+
 
 def is_logged_in(page):
     """بررسی اعتبار سشن با مراجعه به PROFILE_URL"""

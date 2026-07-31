@@ -2,6 +2,7 @@ import time
 from urllib.parse import urljoin
 from config import MAIN_URL, console
 
+
 def extract_old_theme(page, *, verbose=False):
     download_links = []
 
@@ -16,20 +17,20 @@ def extract_old_theme(page, *, verbose=False):
             return None
 
         next_link = current_link.locator(
-            'xpath=following-sibling::a[contains(@class, "desktop-unit-nav__unit")]'
-        ).first
+                'xpath=following-sibling::a[contains(@class, "desktop-unit-nav__unit")]'
+                ).first
         if next_link.count() > 0:
             return next_link.get_attribute('href')
 
         current_chapter_body = current_link.locator(
-            'xpath=ancestor::div[contains(@class, "filler")]'
-        )
+                'xpath=ancestor::div[contains(@class, "filler")]'
+                )
         if current_chapter_body.count() == 0:
             return None
 
         next_chapter_title = current_chapter_body.locator(
-            'xpath=following-sibling::div[contains(@class, "desktop-unit-nav__chapter")]'
-        ).first
+                'xpath=following-sibling::div[contains(@class, "desktop-unit-nav__chapter")]'
+                ).first
         if next_chapter_title.count() == 0:
             return None
 
@@ -46,8 +47,8 @@ def extract_old_theme(page, *, verbose=False):
 
     while True:
         video_urls = page.eval_on_selector_all(
-            'video#lecture-video source', 'els => els.map(el => el.src)'
-        )
+                'video#lecture-video source', 'els => els.map(el => el.src)'
+                )
         if video_urls:
             hq_url = video_urls[0]
             console.print(f"🎬 {hq_url}")

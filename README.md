@@ -17,6 +17,7 @@ and saves them to a text file.
 
 - Automatic login using credentials stored in a `.env` file
 - Session persistence using Playwright storage_state to avoid repeated logins
+- Automatically detects and supports both the legacy and the new Maktabkhooneh website themes
 - Automatically starts from the first lesson of a course
 - Supports both **"جلسه اول"** and **"ثبت‌نام"** buttons
 - Traverses all chapters and lessons through the course sidebar
@@ -31,6 +32,18 @@ and saves them to a text file.
 - Verbose mode for detailed execution logs
 - Automatically detects expired sessions and performs a new login
 - Extracts signed CDN video URLs directly from the HTML5 video player
+
+---
+
+## Supported Website Themes
+
+The extractor automatically detects the website layout and selects the
+appropriate extraction strategy.
+
+- Legacy Maktabkhooneh theme
+- New Maktabkhooneh theme
+
+No user configuration is required.
 
 ---
 
@@ -72,8 +85,9 @@ MAKTAB_USERNAME=your_email_or_phone
 MAKTAB_PASSWORD=your_password
 ```
 
-After the first successful login, the script creates `maktab_state.json` automatically.
-This file stores the authenticated browser session to avoid logging in again.
+After the first successful login, the script automatically creates
+`maktab_state.json`, which stores the authenticated browser session
+for future runs.
 
 ---
 
@@ -149,16 +163,21 @@ python main.py "https://maktabkhooneh.org/course/..." --output course1.txt --ver
 
 ```text
 .
-├── main.py
+├── extractors/
+│   ├── old_theme.py       # Extractor for the legacy Maktabkhooneh theme
+│   └── new_theme.py       # Extractor for the new Maktabkhooneh theme
+├── main.py                # Entry point and automatic theme detection
 ├── requirements.txt
 ├── README.md
 ├── .env
 └── maktab_state.json
 ```
 
-> Note: `maktab_state.json` is generated automatically after the first successful login and is used to reuse the authenticated session.
+> **Note:** `main.py` automatically detects whether the course uses the legacy or the new Maktabkhooneh theme and delegates the extraction process to the appropriate module.
 >
-> Note: `.env` stores login credentials and should not be committed to the repository.
+> **Note:** `maktab_state.json` is generated automatically after the first successful login and is used to reuse the authenticated session.
+>
+> **Note:** `.env` stores login credentials and should not be committed to the repository.
 
 ## Technologies
 

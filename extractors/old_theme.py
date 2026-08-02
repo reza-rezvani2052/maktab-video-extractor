@@ -1,4 +1,3 @@
-import time
 from urllib.parse import urljoin
 from config import MAIN_URL, console
 
@@ -39,9 +38,9 @@ def extract_old_theme(page, *, verbose=False):
         if body.count() > 0:
             if 'js-collapsible__body--active' not in (body.get_attribute('class') or ''):
                 next_chapter_title.click()
-                time.sleep(1)
             first_unit = body.locator('a.desktop-unit-nav__unit').first
             if first_unit.count() > 0:
+                first_unit.wait_for(state="visible", timeout=10000)
                 return first_unit.get_attribute('href')
         return None
 
@@ -65,6 +64,5 @@ def extract_old_theme(page, *, verbose=False):
         vprint(f"➡️ Next lesson: {next_url}")
         page.goto(next_url, wait_until="domcontentloaded")
         page.wait_for_selector('div.desktop-unit-nav', timeout=10000)
-        time.sleep(0.3)
 
     return download_links

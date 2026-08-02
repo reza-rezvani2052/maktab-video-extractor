@@ -72,7 +72,6 @@ def extract_new_theme(page, *, verbose=False):
             page.goto(lesson_url, wait_until="domcontentloaded")
             try:
                 page.wait_for_selector("#unitChapter", timeout=15000)
-                page.wait_for_timeout(3000)
             except Exception as e:
                 console.print(f"Error loading lesson: {e}", style="red")
                 continue

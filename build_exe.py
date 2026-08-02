@@ -1,49 +1,87 @@
 """
-این اسکریپت با استفاده از subprocess.run() دستور PyInstaller را اجرا می‌کند
+Build executable using PyInstaller.
 """
 
-import time
+from pathlib import Path
+import shutil
 import subprocess
-
-# ...
+import sys
+import time
 
 APP_NAME = "Maktab-Video-Extractor"
-ICON = "RC/app-icon.ico"
-DIST_DIR = "dist/Maktab-Video-Extractor"
+ENTRY_POINT = "main.py"
+ICON = Path("RC") / "app-icon.ico"
 
-# ...
+BUILD_MODE = "--onedir"          # or "--onefile"
 
-# دستور ساخت فایل اجرایی توسط پای اینستالر
-PYINSTALLER_CMD = (
-    "pyinstaller --onedir "
-    f"--icon={ICON} --name={APP_NAME} main.py"
-)
-
-# ...
+BUILD_DIR = Path("build")
+DIST_DIR = Path("dist")
+SPEC_FILE = Path(f"{APP_NAME}.spec")
 
 
-def run_pyinstaller():
-    """اجرای PyInstaller"""
-    print("Running PyInstaller...")
-    result = subprocess.run(PYINSTALLER_CMD, shell=True)
+def remove(path: Path):
+    """Delete a file or directory if it exists."""
+    if not path.exists():
+        return
 
-    if result.returncode == 0:
-        print("Build successful!")
-        return True
+    if path.is_dir():
+        shutil.rmtree(path)
     else:
-        print("Build failed!")
-        return False
+        path.unlink()
+
+
+def clean():
+    """Clean previous build artifacts."""
+    print("Cleaning previous build...")
+
+    remove(BUILD_DIR)
+    remove(DIST_DIR)
+    remove(SPEC_FILE)
+
+
+def show_pyinstaller_version():
+    """Print PyInstaller version."""
+    result = subprocess.run(
+        ["pyinstaller", "--version"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    print(f"PyInstaller {result.stdout.strip()}")
+
+
+def build():
+    """Run PyInstaller."""
+
+    command = [
+        "pyinstaller",
+        BUILD_MODE,
+        f"--icon={ICON}",
+        f"--name={APP_NAME}",
+        ENTRY_POINT,
+    ]
+
+    subprocess.run(command, check=True)
+
+
+def main():
+    start = time.perf_counter()
+
+    print("Starting build...\n")
+
+    show_pyinstaller_version()
+    clean()
+    build()
+
+    elapsed = time.perf_counter() - start
+
+    print(f"\nBuild completed successfully in {elapsed:.2f} seconds.")
 
 
 if __name__ == "__main__":
-    print("Starting build process...")
-
-    start_time = time.time()
-    
-    # اجرای PyInstaller
-    #if run_pyinstaller():
-    run_pyinstaller()
-
-    end_time = time.time()
-
-    print(f"Build finished in {end_time - start_time:.2f} seconds.")
+    try:
+        main()
+    except subprocess.CalledProcessError as e:
+        print(f"\nBuild failed (exit code {e.returncode}).")
+        sys.exit(e.returncode)

@@ -108,6 +108,11 @@ rc_rc.py
 # 
 links.txt
 
+# 
+*.spec
+/dist
+/build
+
 #
 maktab_state.json
 desktop.ini

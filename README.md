@@ -131,6 +131,7 @@ python main.py [URL] [OPTIONS]
 
 | Option          | Description                                                               |
 | --------------- | ------------------------------------------------------------------------- |
+| `--version`     | Display the application version and exit.                                 |
 | `--headless`    | Run the browser in headless mode without opening a browser window.        |
 | `--output FILE` | Specify the output file path. Default: `links.txt`.                       |
 | `--download-dir DIR` | Directory for downloaded videos. Default: `downloads`.                 |
@@ -143,6 +144,9 @@ python main.py [URL] [OPTIONS]
 ```bash
 # Interactive mode
 python main.py
+
+# Display the application version
+python main.py --version
 
 # Interactive mode with a custom output file
 python main.py --output videos.txt

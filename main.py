@@ -96,6 +96,16 @@ def normalize_course_url(value: str) -> str | None:
     return url
 
 
+def pause_before_exit() -> None:
+    """Keep an executable launched by double-click open long enough to read output."""
+    if not getattr(sys, "frozen", False) or "--headless" in sys.argv:
+        return
+    try:
+        input("\nPress Enter to exit...")
+    except (EOFError, KeyboardInterrupt):
+        pass
+
+
 def main():
     args = parse_args()
     if not USERNAME or not PASSWORD:
@@ -210,8 +220,6 @@ def main():
             console.print(Panel(links_text, title=f"{len(download_links)} Video Links", border_style="blue"))
             console.print(f"Successfully saved {len(download_links)} links to {args.output}", style="green")
 
-            if not args.headless:
-                input("\nDone. Press Enter to exit...")
             return 0
 
         except AuthenticationError as error:
@@ -231,4 +239,14 @@ def main():
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        exit_code = main()
+    except KeyboardInterrupt:
+        console.print("\nOperation cancelled.", style="yellow")
+        exit_code = 130
+    except Exception as error:
+        console.print(f"Unexpected error: {error}", style="red")
+        exit_code = 1
+    finally:
+        pause_before_exit()
+    raise SystemExit(exit_code)

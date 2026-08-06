@@ -30,6 +30,7 @@ and saves them to a text file.
 - Uses delayed typing to provide more human-like input behavior
 - Customizable output file via the `--output` option
 - Verbose mode for detailed execution logs
+- Saves operational and error logs to `logs/app.log` for troubleshooting
 - Automatically detects expired sessions and performs a new login
 - Extracts signed CDN video URLs directly from the HTML5 video player
 - Downloads each video immediately after extracting its signed URL

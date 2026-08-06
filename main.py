@@ -13,6 +13,7 @@
 # --------------------------------------------------------------------------------------
 
 import argparse  # noqa: I001
+import logging
 import os
 import sys
 from pathlib import Path
@@ -30,6 +31,32 @@ from extractors.old_theme import extract_old_theme
 
 APP_NAME = "Maktab Video Extractor(MVE)"
 APP_VERSION = "2.2.0"
+APP_DIRECTORY = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
+LOG_FILE = APP_DIRECTORY / "logs" / "app.log"
+
+
+def configure_logging() -> logging.Logger:
+    """Write application activity to a support-friendly log file."""
+    logger = logging.getLogger("maktab_video_extractor")
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+    if logger.handlers:
+        return logger
+
+    try:
+        LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+        handler = logging.FileHandler(LOG_FILE, encoding="utf-8")
+        handler.setFormatter(logging.Formatter(
+            "%(asctime)s | %(levelname)-8s | %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        ))
+        logger.addHandler(handler)
+    except OSError:
+        logger.addHandler(logging.NullHandler())
+    return logger
+
+
+logger = configure_logging()
 
 
 START_LESSON_SELECTOR = (
@@ -83,6 +110,7 @@ def bundled_browser_is_available(browsers_path: Path | None) -> bool:
         f"Expected path:\n{browsers_path}",
         style="red",
     )
+    logger.error("Bundled Chromium is missing or incomplete: %s", browsers_path)
     return False
 
 
@@ -119,8 +147,10 @@ def pause_before_exit() -> None:
 def main():
     args = parse_args()
     console.print(f"[bold cyan]{APP_NAME} v{APP_VERSION}[/bold cyan]")
+    logger.info("Application started: version=%s, headless=%s", APP_VERSION, args.headless)
     if not USERNAME or not PASSWORD:
         console.print("MAKTAB_USERNAME or MAKTAB_PASSWORD not found in .env", style="red")
+        logger.error("Application credentials are not configured")
         return 2
 
     def vprint(*values, **kwargs):
@@ -129,6 +159,7 @@ def main():
 
     if args.headless and not args.url:
         console.print("A course URL is required in headless mode.", style="red")
+        logger.error("Headless mode was started without a course URL")
         return 2
     raw_course_url = args.url or input("\nEnter course URL:\n")
     course_url = normalize_course_url(raw_course_url)
@@ -140,6 +171,7 @@ def main():
             "  maktabkhooneh.org/lms/course/...",
             style="red",
         )
+        logger.warning("Rejected invalid course URL input")
         return 2
     if not raw_course_url.startswith(("http://", "https://")):
         vprint(f"Added scheme -> {course_url}", style="cyan")
@@ -155,32 +187,39 @@ def main():
         try:
             # Do not use channel="chrome": the packaged application ships its
             # own Playwright Chromium and must not depend on system Chrome.
+            logger.info("Launching bundled Chromium")
             browser = playwright.chromium.launch(headless=args.headless)
 
             if os.path.exists(SESSION_FILE):
                 console.print("Loading saved session...", style="cyan")
+                logger.info("Loading saved session")
                 context = browser.new_context(storage_state=SESSION_FILE)
                 page = context.new_page()
                 if is_logged_in(page):
                     console.print("Session is still valid. No need to log in again.", style="green")
+                    logger.info("Saved session is valid")
                 else:
                     console.print("Session expired. Logging in again...", style="yellow")
+                    logger.info("Saved session expired; starting login")
                     context.close()
                     context = browser.new_context()
                     page = context.new_page()
                     login_flow(page)
             else:
+                logger.info("No saved session; starting login")
                 context = browser.new_context()
                 page = context.new_page()
                 login_flow(page)
 
             console.print(f"Opening course:\n{course_url}", style="cyan")
+            logger.info("Opening course URL: %s", course_url)
             page.goto(course_url, wait_until="domcontentloaded")
 
             try:
                 page.wait_for_selector(START_LESSON_SELECTOR, timeout=15000)
             except TimeoutError:
                 console.print("Start lesson button was not found.", style="red")
+                logger.error("Start lesson button was not found")
                 return 1
 
             first_lesson = page.locator("#continueCourseNewVersion").first
@@ -193,6 +232,7 @@ def main():
                 ).first
                 if register_button.count() == 0:
                     console.print("Cannot find start lesson button.", style="red")
+                    logger.error("Could not find a start lesson button")
                     return 1
                 register_button.click()
                 vprint("Navigated to the first lesson.", style="green")
@@ -201,10 +241,12 @@ def main():
                 page.wait_for_selector("div.desktop-unit-nav, #unitChapter", timeout=15000)
             except TimeoutError:
                 console.print("Sidebar not found after clicking start.", style="red")
+                logger.error("Sidebar was not found after opening the first lesson")
                 return 1
 
             if page.locator("#unitChapter").count() > 0:
                 console.print("New theme detected", style="green")
+                logger.info("Detected new website theme")
                 download_links = extract_new_theme(
                     page,
                     download_dir=Path(args.download_dir),
@@ -212,6 +254,7 @@ def main():
                 )
             elif page.locator(".desktop-unit-nav").count() > 0:
                 console.print("Old theme detected", style="green")
+                logger.info("Detected old website theme")
                 download_links = extract_old_theme(
                     page,
                     download_dir=Path(args.download_dir),
@@ -219,10 +262,12 @@ def main():
                 )
             else:
                 console.print("Unknown theme. Cannot extract.", style="red")
+                logger.error("Could not detect a supported website theme")
                 return 1
 
             if not download_links:
                 console.print("No video links extracted.", style="yellow")
+                logger.warning("No video links were extracted")
                 return 1
 
             links_text = "\n".join(download_links)
@@ -230,17 +275,21 @@ def main():
                 output_file.write(links_text)
             console.print(Panel(links_text, title=f"{len(download_links)} Video Links", border_style="blue"))
             console.print(f"Successfully saved {len(download_links)} links to {args.output}", style="green")
+            logger.info("Successfully saved %d video links to %s", len(download_links), args.output)
 
             return 0
 
         except AuthenticationError as error:
             console.print(f"Login failed: {error}", style="red")
+            logger.exception("Login failed")
             return 1
         except TimeoutError as error:
             console.print(f"Timed out while interacting with the website: {error}", style="red")
+            logger.exception("Timed out while interacting with the website")
             return 1
         except PlaywrightError as error:
             console.print(f"Browser operation failed: {error}", style="red")
+            logger.exception("Browser operation failed")
             return 1
         finally:
             if context:
@@ -254,9 +303,11 @@ if __name__ == "__main__":
         exit_code = main()
     except KeyboardInterrupt:
         console.print("\nOperation cancelled.", style="yellow")
+        logger.warning("Operation cancelled by user")
         exit_code = 130
     except Exception as error:
         console.print(f"Unexpected error: {error}", style="red")
+        logger.exception("Unexpected unhandled error")
         exit_code = 1
     finally:
         pause_before_exit()

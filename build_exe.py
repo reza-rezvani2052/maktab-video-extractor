@@ -12,7 +12,7 @@ APP_NAME = "Maktab-Video-Extractor"
 ENTRY_POINT = "main.py"
 ICON = Path("RC") / "app-icon.ico"
 
-BUILD_MODE = "--onedir"          # or "--onefile"
+BUILD_MODE = "--onedir"
 
 BUILD_DIR = Path("build")
 DIST_DIR = Path("dist")
@@ -20,7 +20,6 @@ SPEC_FILE = Path(f"{APP_NAME}.spec")
 
 
 def remove(path: Path):
-    """Delete a file or directory if it exists."""
     if not path.exists():
         return
 
@@ -31,7 +30,6 @@ def remove(path: Path):
 
 
 def clean():
-    """Clean previous build artifacts."""
     print("Cleaning previous build...")
 
     remove(BUILD_DIR)
@@ -39,24 +37,27 @@ def clean():
     remove(SPEC_FILE)
 
 
-def show_pyinstaller_version():
-    """Print PyInstaller version."""
-    result = subprocess.run(
-        ["pyinstaller", "--version"],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
+def version(cmd):
+    return subprocess.check_output(cmd, text=True).strip()
 
-    print(f"PyInstaller {result.stdout.strip()}")
+
+def show_versions():
+    print(f"Python      : {sys.version.split()[0]}")
+    print(f"PyInstaller : {version([sys.executable, '-m', 'PyInstaller', '--version'])}")
+    print(f"Playwright  : {version([sys.executable, '-m', 'playwright', '--version'])}")
 
 
 def build():
-    """Run PyInstaller."""
 
     command = [
-        "pyinstaller",
+        sys.executable,
+        "-m",
+        "PyInstaller",
         BUILD_MODE,
+        "--clean",
+        "--noconfirm",
+        "--collect-all",
+        "playwright",
         f"--icon={ICON}",
         f"--name={APP_NAME}",
         ENTRY_POINT,
@@ -65,23 +66,46 @@ def build():
     subprocess.run(command, check=True)
 
 
+def bundle_browser():
+    subprocess.run(
+        [sys.executable, "bundle_playwright.py"],
+        check=True,
+    )
+
+
+def validate_bundle():
+    browser_dir = DIST_DIR / APP_NAME / "ms-playwright"
+    chromium_executables = list(browser_dir.glob("chromium-*/chrome-win*/chrome.exe"))
+    headless_executables = list(
+        browser_dir.glob("chromium_headless_shell-*/chrome-headless-shell-win64/chrome-headless-shell.exe")
+    )
+    if not chromium_executables or not headless_executables:
+        raise FileNotFoundError(
+            "The executable was built, but its bundled Chromium runtime is incomplete."
+        )
+    print(f"Validated bundled Chromium: {chromium_executables[0]}")
+
+
 def main():
+
     start = time.perf_counter()
 
     print("Starting build...\n")
 
-    show_pyinstaller_version()
+    show_versions()
+
     clean()
+
     build()
+
+    bundle_browser()
+
+    validate_bundle()
 
     elapsed = time.perf_counter() - start
 
-    print(f"\nBuild completed successfully in {elapsed:.2f} seconds.")
+    print(f"\nDone in {elapsed:.1f} seconds.")
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except subprocess.CalledProcessError as e:
-        print(f"\nBuild failed (exit code {e.returncode}).")
-        sys.exit(e.returncode)
+    main()

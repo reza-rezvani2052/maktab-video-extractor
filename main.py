@@ -14,6 +14,7 @@
 
 import argparse  # noqa: I001
 import os
+import sys
 from pathlib import Path
 
 from playwright.sync_api import Error as PlaywrightError
@@ -46,6 +47,14 @@ def parse_args():
     return parser.parse_args()
 
 
+def configure_playwright():
+    """Point a packaged application at its bundled Playwright browsers."""
+    if getattr(sys, "frozen", False):
+        os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(
+            Path(sys.executable).resolve().parent / "ms-playwright"
+        )
+
+
 def main():
     args = parse_args()
     if not USERNAME or not PASSWORD:
@@ -67,11 +76,15 @@ def main():
         course_url = "https://" + course_url
         vprint(f"Added scheme -> {course_url}", style="cyan")
 
+    configure_playwright()
+
     context = None
     browser = None
 
     with sync_playwright() as playwright:
         try:
+            # Do not use channel="chrome": the packaged application ships its
+            # own Playwright Chromium and must not depend on system Chrome.
             browser = playwright.chromium.launch(headless=args.headless)
 
             if os.path.exists(SESSION_FILE):

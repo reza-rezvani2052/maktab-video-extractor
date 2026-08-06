@@ -47,12 +47,32 @@ def parse_args():
     return parser.parse_args()
 
 
-def configure_playwright():
+def configure_playwright() -> Path | None:
     """Point a packaged application at its bundled Playwright browsers."""
     if getattr(sys, "frozen", False):
-        os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(
-            Path(sys.executable).resolve().parent / "ms-playwright"
-        )
+        browsers_path = Path(sys.executable).resolve().parent / "ms-playwright"
+        os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(browsers_path)
+        return browsers_path
+    return None
+
+
+def bundled_browser_is_available(browsers_path: Path | None) -> bool:
+    """Show a customer-friendly error if the packaged browser was moved or removed."""
+    if browsers_path is None:
+        return True
+
+    chromium_executables = list(browsers_path.glob("chromium-*/chrome-win*/chrome.exe"))
+    if chromium_executables:
+        return True
+
+    console.print(
+        "[bold red]The bundled Chromium browser is missing or incomplete.[/bold red]\n\n"
+        "The folder [bold]ms-playwright[/bold] must keep this exact name and be next to the .exe file.\n"
+        "Copy the entire application output folder, not only the .exe file.\n\n"
+        f"Expected path:\n{browsers_path}",
+        style="red",
+    )
+    return False
 
 
 def main():
@@ -76,7 +96,9 @@ def main():
         course_url = "https://" + course_url
         vprint(f"Added scheme -> {course_url}", style="cyan")
 
-    configure_playwright()
+    browsers_path = configure_playwright()
+    if not bundled_browser_is_available(browsers_path):
+        return 1
 
     context = None
     browser = None

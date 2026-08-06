@@ -32,6 +32,8 @@ and saves them to a text file.
 - Verbose mode for detailed execution logs
 - Automatically detects expired sessions and performs a new login
 - Extracts signed CDN video URLs directly from the HTML5 video player
+- Downloads each video immediately after extracting its signed URL
+- Names downloaded files using their lesson number and title
 
 ---
 
@@ -131,6 +133,7 @@ python main.py [URL] [OPTIONS]
 | --------------- | ------------------------------------------------------------------------- |
 | `--headless`    | Run the browser in headless mode without opening a browser window.        |
 | `--output FILE` | Specify the output file path. Default: `links.txt`.                       |
+| `--download-dir DIR` | Directory for downloaded videos. Default: `downloads`.                 |
 | `--verbose`     | Display detailed progress messages, including login and navigation steps. |
 
 ---

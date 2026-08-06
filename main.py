@@ -14,6 +14,7 @@
 
 import argparse  # noqa: I001
 import os
+from pathlib import Path
 
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import TimeoutError, sync_playwright
@@ -36,6 +37,11 @@ def parse_args():
     parser.add_argument("url", nargs="?", help="Course page URL")
     parser.add_argument("--headless", action="store_true", help="Run browser in headless mode")
     parser.add_argument("--output", default="links.txt", help="Output file path (default: links.txt)")
+    parser.add_argument(
+        "--download-dir",
+        default="downloads",
+        help="Directory for downloaded new-theme videos (default: downloads)",
+    )
     parser.add_argument("--verbose", action="store_true", help="Show detailed progress messages")
     return parser.parse_args()
 
@@ -116,10 +122,18 @@ def main():
 
             if page.locator("#unitChapter").count() > 0:
                 console.print("New theme detected", style="green")
-                download_links = extract_new_theme(page, verbose=args.verbose)
+                download_links = extract_new_theme(
+                    page,
+                    download_dir=Path(args.download_dir),
+                    verbose=args.verbose,
+                )
             elif page.locator(".desktop-unit-nav").count() > 0:
                 console.print("Old theme detected", style="green")
-                download_links = extract_old_theme(page, verbose=args.verbose)
+                download_links = extract_old_theme(
+                    page,
+                    download_dir=Path(args.download_dir),
+                    verbose=args.verbose,
+                )
             else:
                 console.print("Unknown theme. Cannot extract.", style="red")
                 return 1

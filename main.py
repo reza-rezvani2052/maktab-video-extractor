@@ -16,6 +16,7 @@ import argparse  # noqa: I001
 import os
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import TimeoutError, sync_playwright
@@ -75,6 +76,26 @@ def bundled_browser_is_available(browsers_path: Path | None) -> bool:
     return False
 
 
+def normalize_course_url(value: str) -> str | None:
+    """Return a valid Maktabkhooneh course/lesson URL, or None."""
+    url = value.strip()
+    if not url:
+        return None
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+
+    parsed = urlparse(url)
+    valid_hosts = {"maktabkhooneh.org", "www.maktabkhooneh.org"}
+    valid_paths = ("/course/", "/lms/course/")
+    if parsed.scheme not in {"http", "https"}:
+        return None
+    if parsed.hostname not in valid_hosts:
+        return None
+    if not parsed.path.startswith(valid_paths):
+        return None
+    return url
+
+
 def main():
     args = parse_args()
     if not USERNAME or not PASSWORD:
@@ -88,12 +109,18 @@ def main():
     if args.headless and not args.url:
         console.print("A course URL is required in headless mode.", style="red")
         return 2
-    course_url = args.url or input("\nEnter course URL:\n").strip()
+    raw_course_url = args.url or input("\nEnter course URL:\n")
+    course_url = normalize_course_url(raw_course_url)
     if not course_url:
-        console.print("No course URL provided. Exiting.", style="red")
-        return 1
-    if not course_url.startswith(("http://", "https://")):
-        course_url = "https://" + course_url
+        console.print(
+            "Enter a valid Maktabkhooneh course or lesson URL.\n"
+            "Examples:\n"
+            "  maktabkhooneh.org/course/...\n"
+            "  maktabkhooneh.org/lms/course/...",
+            style="red",
+        )
+        return 2
+    if not raw_course_url.startswith(("http://", "https://")):
         vprint(f"Added scheme -> {course_url}", style="cyan")
 
     browsers_path = configure_playwright()

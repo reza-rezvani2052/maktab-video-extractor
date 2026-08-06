@@ -28,6 +28,10 @@ from extractors.new_theme import extract_new_theme
 from extractors.old_theme import extract_old_theme
 
 
+APP_NAME = "Maktab Video Extractor(MVE)"
+APP_VERSION = "2.2.0"
+
+
 START_LESSON_SELECTOR = (
     '#continueCourseNewVersion, button:has-text("ثبت نام"), '
     'button:has-text("ثبت‌نام")'
@@ -36,6 +40,12 @@ START_LESSON_SELECTOR = (
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Extract HQ video links from Maktabkhooneh courses.")
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {APP_VERSION}",
+        help="Show the application version and exit",
+    )
     parser.add_argument("url", nargs="?", help="Course page URL")
     parser.add_argument("--headless", action="store_true", help="Run browser in headless mode")
     parser.add_argument("--output", default="links.txt", help="Output file path (default: links.txt)")
@@ -108,6 +118,7 @@ def pause_before_exit() -> None:
 
 def main():
     args = parse_args()
+    console.print(f"[bold cyan]{APP_NAME} v{APP_VERSION}[/bold cyan]")
     if not USERNAME or not PASSWORD:
         console.print("MAKTAB_USERNAME or MAKTAB_PASSWORD not found in .env", style="red")
         return 2

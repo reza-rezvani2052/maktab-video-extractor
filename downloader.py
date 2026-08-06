@@ -23,10 +23,20 @@ INVALID_FILENAME_CHARS = set('<>:"/\\|?*')
 CHUNK_SIZE = 1024 * 1024
 
 
+def strip_duration_suffix(title: str) -> str:
+    """Remove trailing video duration labels such as 'ویدئو 2 دقیقه'."""
+    pattern = re.compile(
+        r"(?i)(?:\s|[._-])*(?:ویدئو|video)\s*(?:\d+|[۰-۹]+)\s*(?:دقیقه|min|minutes?|دقیقه‌ای)?\s*$",
+        re.UNICODE,
+    )
+    return pattern.sub("", title).strip(" .")
+
+
 def safe_filename(title: str, index: int) -> str:
     """Return a Windows-safe, ordered filename for a lesson."""
+    cleaned_title = strip_duration_suffix(title)
     cleaned_title = "".join(
-        " " if char in INVALID_FILENAME_CHARS or ord(char) < 32 else char for char in title
+        " " if char in INVALID_FILENAME_CHARS or ord(char) < 32 else char for char in cleaned_title
     )
     cleaned_title = re.sub(r"\s+", " ", cleaned_title).strip(" .")
     cleaned_title = cleaned_title[:180] or f"Lesson {index}"

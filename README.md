@@ -166,6 +166,11 @@ python main.py "https://maktabkhooneh.org/course/..." --no-download
 # URL without the https:// prefix
 python main.py "maktabkhooneh.org/course/..." --headless
 
+# Combined switches example
+python main.py "maktabkhooneh.org/course/..." --no-download --headless --verbose --output links.txt --download-dir "H:\"
+
+> Note: `--download-dir` is ignored when `--no-download` is active because no video files are downloaded.
+
 # Full example: custom output file and verbose mode
 python main.py "https://maktabkhooneh.org/course/..." --output course1.txt --verbose
 ```

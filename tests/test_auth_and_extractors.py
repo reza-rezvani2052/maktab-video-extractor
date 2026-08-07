@@ -4,7 +4,7 @@ import pytest
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from auth import AuthenticationError, is_logged_in, login_flow
-from extractors.new_theme import get_all_lessons
+from extractors.new_theme import format_extraction_summary, get_all_lessons, wait_for_lesson_page
 
 
 class FakeInput:
@@ -127,3 +127,38 @@ def test_get_all_lessons_collects_unique_paths_and_titles():
     assert [lesson.path for lesson in extracted] == ["/lms/course/demo/unit/1/", "/lms/course/demo/unit/2/"]
     assert extracted[0].title == "درس اول"
     assert extracted[1].title == "درس دوم"
+
+
+def test_wait_for_lesson_page_accepts_attached_sidebar():
+    class AttachedSidebarPage:
+        def __init__(self):
+            self.calls = []
+
+        def wait_for_selector(self, selector, state=None, timeout=None):
+            self.calls.append((selector, state, timeout))
+            if selector == "#unitChapter" and state == "attached":
+                return None
+            raise AssertionError("unexpected selector state")
+
+    page = AttachedSidebarPage()
+
+    assert wait_for_lesson_page(page, timeout=1000) is True
+    assert page.calls[0][0] == "#unitChapter"
+    assert page.calls[0][1] == "attached"
+
+
+def test_format_extraction_summary_includes_counts():
+    summary = {
+        "total_lessons": 4,
+        "downloaded": 2,
+        "no_video": 1,
+        "page_errors": 1,
+        "errors": 0,
+    }
+
+    message = format_extraction_summary(summary)
+
+    assert "4 lessons" in message
+    assert "downloaded=2" in message
+    assert "no_video=1" in message
+    assert "page_errors=1" in message

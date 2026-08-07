@@ -72,6 +72,24 @@ def get_all_lessons(page):
     return result
 
 
+def wait_for_lesson_page(page, timeout=15000):
+    """Wait until the lesson sidebar is present, even if it is hidden but attached."""
+    try:
+        page.wait_for_selector("#unitChapter", state="attached", timeout=timeout)
+        return True
+    except TimeoutError:
+        return False
+
+
+def format_extraction_summary(summary):
+    """Create a compact human-readable summary of extraction results."""
+    return (
+        f"Extraction summary: {summary['total_lessons']} lessons, "
+        f"downloaded={summary['downloaded']}, no_video={summary['no_video']}, "
+        f"page_errors={summary['page_errors']}, errors={summary['errors']}"
+    )
+
+
 def extract_new_theme(page, *, download_dir: Path, verbose=False):
     """Extract and download each lesson before navigating to the next one."""
     download_links = []
@@ -82,20 +100,32 @@ def extract_new_theme(page, *, download_dir: Path, verbose=False):
         console.print("No lessons found.", style="yellow")
         return download_links
 
+    summary = {
+        "total_lessons": len(lessons),
+        "downloaded": 0,
+        "no_video": 0,
+        "page_errors": 0,
+        "errors": 0,
+    }
+
     for index, lesson in enumerate(lessons, start=1):
         lesson_url = urljoin(MAIN_URL, lesson.path)
         console.print(f"\n[{index}/{len(lessons)}] {lesson.title}", style="blue")
 
         if index > 1:
             page.goto(lesson_url, wait_until="domcontentloaded")
-            try:
-                page.wait_for_selector("#unitChapter", timeout=15000)
-            except TimeoutError as error:
-                console.print(f"Error loading lesson: {error}", style="red")
+            if not wait_for_lesson_page(page, timeout=15000):
+                summary["page_errors"] += 1
+                console.print("Could not confirm that the lesson page is ready; skipping this lesson.", style="yellow")
                 continue
+            try:
+                page.wait_for_load_state("networkidle", timeout=5000)
+            except TimeoutError:
+                pass
 
         video_urls = extract_video_urls(page)
         if not video_urls:
+            summary["no_video"] += 1
             console.print("No video found", style="yellow")
             continue
 
@@ -103,6 +133,11 @@ def extract_new_theme(page, *, download_dir: Path, verbose=False):
         download_links.append(hq_url)
         download_index = len(download_links)
         if not download_video(hq_url, lesson.title, download_index, download_dir):
+            summary["errors"] += 1
             console.print("The lesson was not downloaded; continuing with the next lesson.", style="yellow")
+            continue
 
+        summary["downloaded"] += 1
+
+    console.print(format_extraction_summary(summary), style="cyan")
     return download_links

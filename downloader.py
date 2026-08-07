@@ -24,9 +24,18 @@ CHUNK_SIZE = 1024 * 1024
 
 
 def strip_duration_suffix(title: str) -> str:
-    """Remove trailing video duration labels such as 'ویدئو 2 دقیقه'."""
+    """Remove trailing video duration labels such as 'ویدئو 2 دقیقه' or 'ویدئو 1 ساعت و 5 دقیقه'."""
     pattern = re.compile(
-        r"(?i)(?:\s|[._-])*(?:ویدئو|video)\s*(?:\d+|[۰-۹]+)\s*(?:دقیقه|min|minutes?|دقیقه‌ای)?\s*$",
+        r"(?ix)"
+        r"(?:\s|[._-])*(?:ویدئو|video)\s*"
+        r"(?:"
+        r"(?:\d+|[۰-۹]+)\s*(?:ساعت|hours?|hrs?|h)"
+        r"(?:\s*(?:و|and)\s*)?"
+        r")?"
+        r"(?:"
+        r"(?:\d+|[۰-۹]+)\s*(?:دقیقه|min|minutes?)"
+        r")?"
+        r"\s*$",
         re.UNICODE,
     )
     return pattern.sub("", title).strip(" .")

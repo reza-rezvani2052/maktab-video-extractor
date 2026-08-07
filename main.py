@@ -138,6 +138,35 @@ def normalize_course_url(value: str) -> str | None:
     return url
 
 
+def is_course_page_accessible(page, response, course_url: str) -> tuple[bool, str | None]:
+    """Validate that the course page is actually accessible and not an error page."""
+    if response is None:
+        return False, "The course page did not return a valid response."
+
+    status = response.status
+    if status >= 400:
+        return False, f"Course page returned HTTP status {status}."
+
+    current_url = page.url.lower()
+    if "login" in current_url and current_url != course_url.lower():
+        return False, "Course page redirected to the login page; the lesson is not accessible with the current session."
+
+    body_text = ""
+    try:
+        body_text = page.locator("body").inner_text(default="").lower()
+    except Exception:
+        pass
+
+    if "مشکلی در سرور وجود دارد" in body_text:
+        return False, "The site returned a server error page for this course."
+    if "دوره حذف شده" in body_text or "دوره حذف‌شده" in body_text:
+        return False, "The requested course appears to have been removed or deleted."
+    if "صفحه پیدا نشد" in body_text or "page not found" in body_text or "404" in body_text:
+        return False, "The course page appears to be missing or returned a 404 page."
+
+    return True, None
+
+
 def pause_before_exit() -> None:
     """Keep an executable launched by double-click open long enough to read output."""
     if not getattr(sys, "frozen", False) or "--headless" in sys.argv:
@@ -217,7 +246,13 @@ def main():
 
             console.print(f"Opening course:\n{course_url}", style="cyan")
             logger.info("Opening course URL: %s", course_url)
-            page.goto(course_url, wait_until="domcontentloaded")
+            response = page.goto(course_url, wait_until="domcontentloaded")
+
+            accessible, error_message = is_course_page_accessible(page, response, course_url)
+            if not accessible:
+                console.print(error_message, style="red")
+                logger.error("Course page validation failed: %s", error_message)
+                return 1
 
             try:
                 page.wait_for_selector(START_LESSON_SELECTOR, timeout=15000)

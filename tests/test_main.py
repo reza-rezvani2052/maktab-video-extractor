@@ -1,5 +1,6 @@
 from downloader import safe_filename
-from main import normalize_course_url
+from main import normalize_course_url, parse_args
+import sys
 
 
 def test_normalize_course_url_adds_https_scheme():
@@ -20,3 +21,10 @@ def test_normalize_course_url_rejects_non_course_path():
 
 def test_safe_filename_replaces_invalid_path_characters():
     assert safe_filename('درس/عنوان: "test"?', 7) == "7- درس عنوان test.mp4"
+
+
+def test_parse_args_supports_no_download(monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["main.py", "https://maktabkhooneh.org/course/demo/", "--no-download"])
+    args = parse_args()
+    assert args.no_download is True
+    assert args.url == "https://maktabkhooneh.org/course/demo/"

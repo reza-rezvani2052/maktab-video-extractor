@@ -29,11 +29,12 @@ and saves them to a text file.
 - Graceful handling of URLs without `https://`
 - Uses delayed typing to provide more human-like input behavior
 - Customizable output file via the `--output` option
+- Optional download mode: extract links only with `--no-download`
 - Verbose mode for detailed execution logs
 - Saves operational and error logs to `logs/app.log` for troubleshooting
 - Automatically detects expired sessions and performs a new login
 - Extracts signed CDN video URLs directly from the HTML5 video player
-- Downloads each video immediately after extracting its signed URL
+- Downloads each video immediately after extracting its signed URL when download is enabled
 - Names downloaded files using their lesson number and title
 
 ---
@@ -130,13 +131,14 @@ python main.py [URL] [OPTIONS]
 
 #### Options
 
-| Option          | Description                                                               |
-| --------------- | ------------------------------------------------------------------------- |
-| `--version`     | Display the application version and exit.                                 |
-| `--headless`    | Run the browser in headless mode without opening a browser window.        |
-| `--output FILE` | Specify the output file path. Default: `links.txt`.                       |
-| `--download-dir DIR` | Directory for downloaded videos. Default: `downloads`.                 |
-| `--verbose`     | Display detailed progress messages, including login and navigation steps. |
+| Option               | Description                                                               |
+| -------------------- | ------------------------------------------------------------------------- |
+| `--version`          | Display the application version and exit.                                 |
+| `--headless`         | Run the browser in headless mode without opening a browser window.        |
+| `--output FILE`      | Specify the output file path. Default: `links.txt`.                       |
+| `--download-dir DIR` | Directory for downloaded videos. Default: `downloads`.                    |
+| `--no-download`      | Extract only video links and skip downloading video files.                |
+| `--verbose`          | Display detailed progress messages, including login and navigation steps. |
 
 ---
 
@@ -157,6 +159,9 @@ python main.py "https://maktabkhooneh.org/course/..." --verbose
 
 # Headless mode
 python main.py "https://maktabkhooneh.org/course/..." --headless
+
+# Extract only links without downloading videos
+python main.py "https://maktabkhooneh.org/course/..." --no-download
 
 # URL without the https:// prefix
 python main.py "maktabkhooneh.org/course/..." --headless

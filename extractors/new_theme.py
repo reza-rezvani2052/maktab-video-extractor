@@ -90,8 +90,8 @@ def format_extraction_summary(summary):
     )
 
 
-def extract_new_theme(page, *, download_dir: Path, verbose=False):
-    """Extract and download each lesson before navigating to the next one."""
+def extract_new_theme(page, *, download_dir: Path, verbose=False, download=True):
+    """Extract and optionally download each lesson before navigating to the next one."""
     download_links = []
     lessons = get_all_lessons(page)
     console.print(f"Lessons found: {len(lessons)}", style="green")
@@ -131,13 +131,15 @@ def extract_new_theme(page, *, download_dir: Path, verbose=False):
 
         hq_url = video_urls[0]
         download_links.append(hq_url)
-        download_index = len(download_links)
-        if not download_video(hq_url, lesson.title, download_index, download_dir):
-            summary["errors"] += 1
-            console.print("The lesson was not downloaded; continuing with the next lesson.", style="yellow")
-            continue
-
-        summary["downloaded"] += 1
+        if download:
+            download_index = len(download_links)
+            if not download_video(hq_url, lesson.title, download_index, download_dir):
+                summary["errors"] += 1
+                console.print("The lesson was not downloaded; continuing with the next lesson.", style="yellow")
+                continue
+            summary["downloaded"] += 1
+        else:
+            summary["downloaded"] += 1
 
     console.print(format_extraction_summary(summary), style="cyan")
     return download_links

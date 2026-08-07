@@ -81,6 +81,11 @@ def parse_args():
         default="downloads",
         help="Directory for downloaded new-theme videos (default: downloads)",
     )
+    parser.add_argument(
+        "--no-download",
+        action="store_true",
+        help="Extract only video links and skip downloading video files",
+    )
     parser.add_argument("--verbose", action="store_true", help="Show detailed progress messages")
     return parser.parse_args()
 
@@ -251,6 +256,7 @@ def main():
                     page,
                     download_dir=Path(args.download_dir),
                     verbose=args.verbose,
+                    download=not args.no_download,
                 )
             elif page.locator(".desktop-unit-nav").count() > 0:
                 console.print("Old theme detected", style="green")
@@ -259,6 +265,7 @@ def main():
                     page,
                     download_dir=Path(args.download_dir),
                     verbose=args.verbose,
+                    download=not args.no_download,
                 )
             else:
                 console.print("Unknown theme. Cannot extract.", style="red")

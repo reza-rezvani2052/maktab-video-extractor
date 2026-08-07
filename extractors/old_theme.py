@@ -5,8 +5,8 @@ from config import MAIN_URL, console
 from downloader import download_video
 
 
-def extract_old_theme(page, *, download_dir: Path, verbose=False):
-    """Extract and immediately download videos from the legacy course layout."""
+def extract_old_theme(page, *, download_dir: Path, verbose=False, download=True):
+    """Extract and optionally download videos from the legacy course layout."""
     download_links = []
 
     def vprint(*args, **kwargs):
@@ -69,7 +69,8 @@ def extract_old_theme(page, *, download_dir: Path, verbose=False):
             video_index = len(download_links)
             title = get_current_lesson_title(video_index)
             console.print(f"Video {video_index}: {title}", style="cyan")
-            download_video(hq_url, title, video_index, download_dir)
+            if download:
+                download_video(hq_url, title, video_index, download_dir)
         else:
             vprint("This lesson does not contain a video.", style="yellow")
 

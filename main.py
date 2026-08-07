@@ -14,7 +14,6 @@
 
 import argparse  # noqa: I001
 import logging
-import os
 import sys
 from pathlib import Path
 from urllib.parse import urlparse
@@ -195,7 +194,7 @@ def main():
             logger.info("Launching bundled Chromium")
             browser = playwright.chromium.launch(headless=args.headless)
 
-            if os.path.exists(SESSION_FILE):
+            if Path(SESSION_FILE).exists():
                 console.print("Loading saved session...", style="cyan")
                 logger.info("Loading saved session")
                 context = browser.new_context(storage_state=SESSION_FILE)

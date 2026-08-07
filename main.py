@@ -167,6 +167,26 @@ def is_course_page_accessible(page, response, course_url: str) -> tuple[bool, st
     return True, None
 
 
+def format_network_error(error: PlaywrightError) -> str:
+    message = str(error)
+    normalized = message.lower()
+
+    if any(term in normalized for term in ("name_not_resolved", "err_name_not_resolved", "dns")):
+        return "Could not resolve the site hostname. Check your internet connection, VPN, or DNS settings."
+    if any(term in normalized for term in ("internet_disconnected", "err_internet_disconnected", "net::err_internet_disconnected")):
+        return "Internet connection appears to be down. Check your network or VPN."
+    if any(term in normalized for term in ("connection_refused", "err_connection_refused", "net::err_connection_refused")):
+        return "Connection to the site was refused. Verify your network, VPN, or site availability."
+    if any(term in normalized for term in ("connection_reset", "err_connection_reset", "net::err_connection_reset")):
+        return "Connection was reset by the server or network. Check your network, VPN, or filtering."
+    if any(term in normalized for term in ("blocked_by_client", "blocked_by_admin", "err_blocked_by_client", "err_blocked_by_admin", "blocked")):
+        return "The request was blocked by local filtering or a proxy. Check VPN, firewall, or content filtering."
+    if "tls" in normalized or "ssl" in normalized:
+        return "SSL/TLS connection failed. Check your network, proxy, or site certificate."
+
+    return f"Browser operation failed: {message}"
+
+
 def pause_before_exit() -> None:
     """Keep an executable launched by double-click open long enough to read output."""
     if not getattr(sys, "frozen", False) or "--headless" in sys.argv:
@@ -325,11 +345,15 @@ def main():
             logger.exception("Login failed")
             return 1
         except TimeoutError as error:
-            console.print(f"Timed out while interacting with the website: {error}", style="red")
+            console.print(
+                "Operation timed out while interacting with the website. "
+                "Please check your internet connection, VPN, or network restrictions.",
+                style="red",
+            )
             logger.exception("Timed out while interacting with the website")
             return 1
         except PlaywrightError as error:
-            console.print(f"Browser operation failed: {error}", style="red")
+            console.print(format_network_error(error), style="red")
             logger.exception("Browser operation failed")
             return 1
         finally:

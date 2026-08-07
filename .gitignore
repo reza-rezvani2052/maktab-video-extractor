@@ -79,7 +79,6 @@ CMakeLists.txt.user*
 .pch/
 .rcc/
 .uic/
-/build*/
 
 
 # My EXE Path
@@ -113,6 +112,7 @@ links.txt
 *.spec
 /dist
 /build
+# /build*/
 
 #
 maktab_state.json

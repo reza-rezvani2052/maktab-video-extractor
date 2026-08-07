@@ -6,8 +6,9 @@ import sys
 from pathlib import Path
 
 
+ROOT_DIR = Path(__file__).resolve().parent.parent
 APP_NAME = "Maktab-Video-Extractor"
-DIST = Path("dist") / APP_NAME
+DIST = ROOT_DIR / "dist" / APP_NAME
 TARGET = DIST / "ms-playwright"
 REQUIRED_BROWSER_PREFIXES = ("chromium-", "chromium_headless_shell-", "ffmpeg-")
 

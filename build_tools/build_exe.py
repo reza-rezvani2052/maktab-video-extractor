@@ -8,15 +8,16 @@ import subprocess
 import sys
 import time
 
+ROOT_DIR = Path(__file__).resolve().parent.parent
 APP_NAME = "Maktab-Video-Extractor"
-ENTRY_POINT = "main.py"
-ICON = Path("RC") / "app-icon.ico"
+ENTRY_POINT = ROOT_DIR / "main.py"
+ICON = ROOT_DIR / "RC" / "app-icon.ico"
 
 BUILD_MODE = "--onedir"
 
-BUILD_DIR = Path("build")
-DIST_DIR = Path("dist")
-SPEC_FILE = Path(f"{APP_NAME}.spec")
+BUILD_DIR = ROOT_DIR / "build"
+DIST_DIR = ROOT_DIR / "dist"
+SPEC_FILE = ROOT_DIR / f"{APP_NAME}.spec"
 
 
 def remove(path: Path):
@@ -68,7 +69,7 @@ def build():
 
 def bundle_browser():
     subprocess.run(
-        [sys.executable, "bundle_playwright.py"],
+        [sys.executable, str(ROOT_DIR / "build_tools" / "bundle_playwright.py")],
         check=True,
     )
 
